@@ -35,6 +35,11 @@ final class LnbitsClient
 
     public function wallet(): array { return $this->request('GET', '/api/v1/wallet', null, false); }
     public function walletAdmin(): array { return $this->request('GET', '/api/v1/wallet', null, true); }
+    public function renameWallet(string $name): array
+    {
+        if ($name === '' || strlen($name) > 254) { throw new InvalidArgumentException('Neplatný název peněženky.'); }
+        return $this->request('PUT', '/api/v1/wallet', ['name' => $name], true);
+    }
     public function history(): array { return $this->request('GET', '/api/v1/payments?limit=100', null, false); }
     public function createInvoice(int $sats, string $memo): array
     {

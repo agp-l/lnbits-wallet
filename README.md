@@ -19,6 +19,8 @@ Víceuživatelská peněženka v PHP nad oddělenými peněženkami jednoho úč
 5. Ještě před přihlášením dalších uživatelů přiřaďte **dosavadní** LNbits peněženku svému e-mailu příkazem `php bin/import_wallet.php`. Zadáte e-mail, dosavadní `invoice_key` a `admin_key` **interaktivně na serveru**; skript ověří ID peněženky u LNbits a uloží klíče šifrovaně. Nemigruje ani neodesílá prostředky. Pak se na webu přihlaste tímto e-mailem a kódem.
 6. Před otevřením registrace otestujte doručení kódu a vytvoření další **prázdné** peněženky na malých částkách. Upravte `max_send_sats` a `max_invoice_sats`. `history_amount_unit` nastavte dle odpovědi vaší verze LNbits (`msat` nebo `sat`); zůstatek API je v `msat`.
 
+Nové peněženky vytvořené aplikací mají v LNbits jako název e-mail účtu; vazba v databázi zůstává na stabilním `wallet_id`. Dřívější automaticky vytvořené názvy `Lite Wallet …` lze nejprve prohlédnout příkazem `php bin/rename_wallets.php` a pak přejmenovat pomocí `php bin/rename_wallets.php --apply`. Příkaz přeskočí peněženky s vlastním názvem a porovná jejich ID v LNbits. E-mail bude viditelný v LNbits administraci; ID peněženky e-mail před správcem neskrývá.
+
 Při reverzní proxy musí webový PHP proces dostávat `$_SERVER['HTTPS']='on'`. Neukládejte klíče ani SMTP heslo do GitHubu nebo JavaScriptu. Přes phpMyAdmin uvidíte uživatele a převody; klíče peněženek jsou v databázi zašifrované. Nezadávejte skutečná hesla do ukázkového souboru ani do GitHubu.
 
 ### Místní ladění

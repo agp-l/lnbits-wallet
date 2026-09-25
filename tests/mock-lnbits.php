@@ -34,6 +34,11 @@ $wallet = $state['wallets'][$walletId];
 if ($method === 'GET' && $path === '/api/v1/wallet') {
     reply_json($admin ? $wallet : ['name' => $wallet['name'], 'balance' => $wallet['balance']]);
 }
+if ($method === 'PUT' && $path === '/api/v1/wallet') {
+    if (!$admin) { reply_json(['detail' => 'Admin key required'], 403); }
+    $state['wallets'][$walletId]['name'] = (string) ($body['name'] ?? '');
+    reply_json($state['wallets'][$walletId]);
+}
 if ($method === 'GET' && $path === '/api/v1/payments') { reply_json($state['payments'][$walletId] ?? []); }
 if ($method === 'GET' && str_starts_with($path, '/api/v1/payments/')) {
     $id = basename($path);

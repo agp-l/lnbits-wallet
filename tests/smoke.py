@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import socket
 import socketserver
+import sqlite3
 import ssl
 import subprocess
 import tempfile
@@ -186,6 +187,21 @@ def main():
             bob = login('bob@example.com')
             summary = bob('summary')
             assert summary['balance_msat'] == 2000 and summary['payments'][0]['amount_msat'] == 2000
+            state = json.loads((root / 'state.json').read_text())
+            with sqlite3.connect(root / 'wallet.sqlite') as db:
+                bob_id, bob_wallet_id = db.execute('SELECT id,wallet_id FROM users WHERE email=?', ('bob@example.com',)).fetchone()
+                assert state['wallets'][bob_wallet_id]['name'] == 'bob@example.com'
+                old_name = 'Lite Wallet ' + bob_id[:12]
+                db.execute('UPDATE users SET wallet_name=? WHERE id=?', (old_name, bob_id))
+            state['wallets'][bob_wallet_id]['name'] = old_name
+            (root / 'state.json').write_text(json.dumps(state))
+            rename_cmd = [PHP, str(ROOT / 'bin/rename_wallets.php')]
+            dry = subprocess.run(rename_cmd, text=True, capture_output=True, cwd=ROOT)
+            assert dry.returncode == 0 and 'bob@example.com' in dry.stdout
+            assert json.loads((root / 'state.json').read_text())['wallets'][bob_wallet_id]['name'] == old_name
+            applied = subprocess.run([*rename_cmd, '--apply'], text=True, capture_output=True, cwd=ROOT)
+            assert applied.returncode == 0, applied.stderr
+            assert json.loads((root / 'state.json').read_text())['wallets'][bob_wallet_id]['name'] == 'bob@example.com'
             try:
                 bob('email_status', extra='&id=' + sent['id'])
                 raise AssertionError('Recipient accessed sender transfer')

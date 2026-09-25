@@ -25,7 +25,7 @@ final class WalletProvisioner
             }
             $ch = curl_init($url);
             if ($ch === false) { throw new RuntimeException('Nelze kontaktovat LNbits.'); }
-            $name = 'Lite Wallet ' . substr($user['id'], 0, 12);
+            $name = (string) $user['email'];
             curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => json_encode(['name' => $name], JSON_THROW_ON_ERROR),
                 CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token, 'Content-Type: application/json', 'Accept: application/json'],
                 CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 6, CURLOPT_TIMEOUT => 20,

@@ -71,6 +71,15 @@ final class UserRepository
         if (empty($user['wallet_id']) || empty($user['admin_key']) || empty($user['invoice_key'])) { throw new RuntimeException('Peněženka není připravena.'); }
         return ['invoice_key' => $this->vault->open($user['invoice_key']), 'admin_key' => $this->vault->open($user['admin_key'])];
     }
+    public function wallets(): array
+    {
+        return $this->db->pdo->query('SELECT * FROM users WHERE wallet_id IS NOT NULL ORDER BY email')->fetchAll();
+    }
+    public function setWalletName(string $id, string $walletId, string $name): void
+    {
+        $q = $this->db->pdo->prepare('UPDATE users SET wallet_name=? WHERE id=? AND wallet_id=?');
+        $q->execute([$name, $id, $walletId]);
+    }
     public function import(string $email, array $wallet): void
     {
         $user = $this->pending($email);
