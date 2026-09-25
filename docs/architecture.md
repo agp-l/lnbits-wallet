@@ -16,5 +16,5 @@
 ## Omezení
 
 - Vydání podporuje Lightning (BOLT11), ne bitcoinové on-chain adresy. Převod může být zpoplatněn dle zdroje LNbits.
-- Potřebuje dostupné SMTP, PDO SQLite a možnost zakládat další peněženky pro účet na konkrétní instanci LNbits.
+- Potřebuje dostupné SMTP, MySQL/MariaDB přes PDO MySQL (nebo dřívější SQLite přes PDO SQLite) a možnost zakládat další peněženky pro účet na konkrétní instanci LNbits.
 - Kódy přihlášení a účetní token nejsou součástí repozitáře ani uživatelského HTML.

@@ -117,6 +117,9 @@ def main():
                 input='alice@example.com\ninvoice-key-test-123456\nadmin-key-test-12345678\n',
                 text=True, capture_output=True, cwd=ROOT)
             assert imported.returncode == 0, imported.stderr
+            checked = subprocess.run([PHP, str(ROOT / 'bin/check_database.php')],
+                                     text=True, capture_output=True, cwd=ROOT)
+            assert checked.returncode == 0 and 'SQLite' in checked.stdout, (checked.stdout, checked.stderr)
             base = f'http://127.0.0.1:{frontend_port}/'
 
             def login(email):
