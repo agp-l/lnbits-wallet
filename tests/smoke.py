@@ -75,6 +75,7 @@ def main():
 
             summary = call('summary')
             assert summary['balance_msat'] == 4242000 and summary['payments'][0]['amount_msat'] == -2000
+            assert [row['time'] for row in summary['payments']] == [1740000000, 1740000000, 1740000000, 1740000000, 0]
             assert 'admin-key-test' not in json.dumps(summary)
             try:
                 call('receive', {'amount': 0, 'memo': 'Invalid'})

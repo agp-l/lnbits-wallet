@@ -20,6 +20,22 @@ function msat_value(mixed $value): int
     return (int) $value;
 }
 
+function payment_time_seconds(array $row): int
+{
+    foreach (['time', 'created_at'] as $field) {
+        $value = $row[$field] ?? null;
+        if (is_int($value) || (is_string($value) && preg_match('/^[0-9]{10,13}$/D', $value))) {
+            $seconds = (int) $value;
+            if ($seconds >= 1000000000000) { $seconds = intdiv($seconds, 1000); }
+            if ($seconds >= 1230768000 && $seconds <= time() + 86400) { return $seconds; }
+        } elseif (is_string($value) && preg_match('/^\d{4}-\d\d-\d\d[T ]\d\d:\d\d:\d\d/', $value)) {
+            $seconds = strtotime($value);
+            if ($seconds !== false && $seconds >= 1230768000 && $seconds <= time() + 86400) { return $seconds; }
+        }
+    }
+    return 0;
+}
+
 try {
     start_wallet_session();
     if (!authenticated()) { reply(['error' => 'Přihlaste se znovu.'], 401); }
@@ -50,7 +66,7 @@ try {
                 'id' => substr((string) ($row['checking_id'] ?? $row['payment_hash'] ?? ''), 0, 160),
                 'amount_msat' => $amount,
                 'memo' => substr((string) ($row['memo'] ?? ''), 0, 180),
-                'time' => (int) ($row['time'] ?? 0),
+                'time' => payment_time_seconds($row),
                 'status' => (string) ($row['status'] ?? (isset($row['pending']) ? ($row['pending'] ? 'pending' : 'success') : 'unknown')),
             ];
         }

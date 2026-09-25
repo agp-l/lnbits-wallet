@@ -10,7 +10,7 @@ $sendLog = getenv('LITE_LN_TEST_SEND_LOG');
 if ($key !== $invoiceKey && $key !== $adminKey) { http_response_code(401); echo '{"detail":"Unauthorized"}'; exit; }
 if ($method === 'GET' && $path === '/api/v1/wallet') { echo '{"name":"Mock","balance":4242000}'; exit; }
 if ($method === 'GET' && $path === '/api/v1/payments') {
-    echo '[{"checking_id":"payment12345678","amount":-2000,"memo":"Test","time":1740000000,"status":"success"}]'; exit;
+    echo '[{"checking_id":"payment12345678","amount":-2000,"memo":"Test","time":"2025-02-19T21:20:00+00:00","status":"success"},{"checking_id":"invoice1","amount":1000,"time":1740000000,"status":"success"},{"checking_id":"payment2","amount":-1000,"time":1740000000000,"status":"success"},{"checking_id":"payment3","amount":-1000,"time":"invalid","created_at":"2025-02-19T21:20:00Z","status":"success"},{"checking_id":"payment4","amount":-1000,"time":"invalid","status":"success"}]'; exit;
 }
 if ($method === 'GET' && str_starts_with($path, '/api/v1/payments/')) { echo '{"paid":true,"details":{"status":"success"}}'; exit; }
 $body = json_decode(file_get_contents('php://input'), true);
