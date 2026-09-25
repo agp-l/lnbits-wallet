@@ -1,15 +1,20 @@
 <?php
 declare(strict_types=1);
 
+namespace LiteWallet;
+
+use InvalidArgumentException;
+use RuntimeException;
+
 final class LnbitsClient
 {
     private string $baseUrl;
     private string $invoiceKey;
     private string $adminKey;
 
-    public function __construct(array $config)
+    public function __construct(string $baseUrl, string $invoiceKey, string $adminKey)
     {
-        $url = rtrim((string) ($config['lnbits_url'] ?? ''), '/');
+        $url = rtrim($baseUrl, '/');
         $parts = parse_url($url);
         $scheme = is_array($parts) ? ($parts['scheme'] ?? '') : '';
         $host = is_array($parts) ? ($parts['host'] ?? '') : '';
@@ -19,16 +24,17 @@ final class LnbitsClient
             || ($scheme === 'http' && !in_array($host, ['localhost', '127.0.0.1', '::1'], true))) {
             throw new RuntimeException('Neplatná adresa serveru LNbits. Mimo localhost použijte HTTPS.');
         }
-        $this->invoiceKey = (string) ($config['invoice_key'] ?? '');
-        $this->adminKey = (string) ($config['admin_key'] ?? '');
+        $this->invoiceKey = $invoiceKey;
+        $this->adminKey = $adminKey;
         if (strlen($this->invoiceKey) < 16 || strlen($this->adminKey) < 16
             || str_contains($this->invoiceKey, 'PASTE_') || str_contains($this->adminKey, 'PASTE_')) {
-            throw new RuntimeException('Doplňte klíče LNbits do config.php.');
+            throw new RuntimeException('Klíče této peněženky LNbits nejsou platně uložené.');
         }
         $this->baseUrl = $url;
     }
 
     public function wallet(): array { return $this->request('GET', '/api/v1/wallet', null, false); }
+    public function walletAdmin(): array { return $this->request('GET', '/api/v1/wallet', null, true); }
     public function history(): array { return $this->request('GET', '/api/v1/payments?limit=100', null, false); }
     public function createInvoice(int $sats, string $memo): array
     {

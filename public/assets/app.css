@@ -217,3 +217,5 @@
 .generated-invoice .address-box { max-height: 130px; overflow-y: auto; user-select: all; font-size: 11px; }
 .action:disabled { opacity: .56; }
 .modal dd { max-width: 220px; }
+.send-divider { text-align: center; margin: 20px 0; color: var(--muted); font-size: 12px; font-weight: 700; }
+.transfer-status { margin-top: 14px; }

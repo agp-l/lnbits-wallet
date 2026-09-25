@@ -221,6 +221,39 @@
     finally { button.disabled = false; }
   });
 
+  $('#emailSendForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = event.target.querySelector('[type="submit"]'); button.disabled = true;
+    try {
+      const amount = Number($('#emailAmount').value);
+      if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Zadejte platnou částku v sat.');
+      const preview = await api('email_preview', { email: $('#emailRecipient').value.trim(), amount });
+      // The preview ID is also the status ID. Keep it if the send response is lost.
+      $('#transferId').value = preview.token;
+      try { sessionStorage.setItem('lastEmailTransferId', preview.token); } catch (_) { /* Storage is optional. */ }
+      showModal('Potvrdit převod', 'Ověřte příjemce. Převod přes Lightning může mít poplatek.', [
+        ['E-mail příjemce', preview.email], ['Částka', `${formatSat(preview.amount_msat)} sat`], ['ID pro ověření', preview.token]
+      ], async () => {
+        const sent = await api('email_send', { token: preview.token });
+        $('#transferId').value = sent.id;
+        $('#emailAmount').value = '';
+        refresh();
+        return { title: 'Převod zadán', description: sent.message, details: [['ID převodu', sent.id]] };
+      });
+    } catch (error) { toast(error.message); }
+    finally { button.disabled = false; }
+  });
+  $('#emailStatusForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      const id = $('#transferId').value.trim();
+      const state = await api('email_status', undefined, { id });
+      const message = ({ paid: 'Příjemci bylo připsáno.', pending: 'Stav je zatím nejasný nebo platba čeká. Neodesílejte znovu.', failed: 'LNbits hlásí neúspěšný převod.' })[state.state] || 'Stav převodu není dostupný.';
+      showModal('Stav převodu', message, [['ID převodu', id]]);
+      if (state.state === 'paid') refresh();
+    } catch (error) { toast(error.message); }
+  });
+
   $$('[data-go]').forEach((button) => button.addEventListener('click', () => goTo(button.dataset.go)));
   $('#menuOpen').addEventListener('click', openMenu);
   $('#menuClose').addEventListener('click', () => closeMenu());
@@ -239,6 +272,7 @@
   $('#refreshHistory').addEventListener('click', refresh);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { refresh(); checkInvoice(); } });
   setInterval(() => { if (!document.hidden) refresh(); }, 30000);
+  try { $('#transferId').value = sessionStorage.getItem('lastEmailTransferId') || ''; } catch (_) { /* Private browsing may disable storage. */ }
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
   refresh();
 })();

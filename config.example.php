@@ -1,17 +1,23 @@
 <?php
 declare(strict_types=1);
 
-// Copy this file to config.php (one directory above public/). Never publish it.
+// Copy outside public/ as config.php. Generate app_key: php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'
 return [
     'lnbits_url' => 'https://lnbits.cz',
-    'invoice_key' => 'PASTE_YOUR_INVOICE_KEY',
-    'admin_key' => 'PASTE_YOUR_ADMIN_KEY',
-    // Generate locally: php -r 'echo password_hash(readline("New password: "), PASSWORD_DEFAULT), PHP_EOL;'
-    'password_hash' => 'PASTE_PASSWORD_HASH',
-    'wallet_name' => 'Lite Wallet',
+    // Account-level Bearer/ACL token with POST /api/v1/wallet permission. NEVER paste a token in GitHub.
+    'lnbits_account_token' => 'PASTE_NEW_ACCOUNT_TOKEN',
+    'database_path' => __DIR__ . '/data/wallet.sqlite',
+    'app_key' => 'PASTE_64_HEX_CHARACTERS_FROM_RANDOM_BYTES',
+    'app_url' => 'https://wallet.example.com/',
+    'mail' => [
+        'host' => 'smtp.example.com',
+        'port' => 587, // SMTP with STARTTLS and verified certificate; no plaintext fallback.
+        'username' => 'wallet@example.com',
+        'password' => 'PASTE_SMTP_PASSWORD',
+        'from' => 'wallet@example.com',
+    ],
     'max_send_sats' => 10000,
     'max_invoice_sats' => 100000,
-    // Check your LNbits version: older installations use msat for payment.amount.
-    // Newer versions may use sat. Wallet balance is always in msat.
+    // Older LNbits history.amount is msat; check your actual instance before switching to sat.
     'history_amount_unit' => 'msat',
 ];

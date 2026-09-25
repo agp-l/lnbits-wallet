@@ -1,37 +1,43 @@
 # Lite Wallet · Lightning
 
-Samostatná webová peněženka v PHP nad **jednou** peněženkou LNbits. Vychází ze schváleného mobilního vzhledu Lite Wallet. Ukazuje skutečný zůstatek a historii, vystavuje faktury s QR kódem, ověřuje zaplacení a po potvrzení uživatelem platí faktury BOLT11. Na serveru ani v telefonu negeneruje seed. BTC adresy a on-chain platby nejsou součástí této verze.
+Víceuživatelská peněženka v PHP nad oddělenými peněženkami jednoho účtu LNbits. Každý e-mail má vlastní zůstatek a historii. Přístup se potvrzuje osmimístným **jednorázovým kódem** doručeným přes SMTP; aplikace neposílá trvalá hesla e-mailem. Platbu lze poslat na jiný e-mail nebo BOLT11 fakturu. **Převody na e-mail probíhají přes Lightning**, nejsou to bitcoinové on-chain transakce ani BTC adresy. LNbits a jeho funding source prostředky spravují; uživatelé nemají vlastní seed.
 
-## Instalace
+## Požadavky
 
-1. Na serveru mějte PHP **8.1+** s rozšířením `curl`, zapnutými sessions a HTTPS pro veřejný přístup. LNbits musí být dostupné z PHP serveru.
-2. Zkopírujte `config.example.php` do `config.php` v kořeni projektu. Z LNbits peněženky vložte **invoice/read key** a **admin key**; klíče neposílejte do prohlížeče. Nastavte svůj server `lnbits_url` (například `https://lnbits.cz`).
-3. Vytvořte hash vlastního hesla příkazem `php -r 'echo password_hash(readline("New password: "), PASSWORD_DEFAULT), PHP_EOL;'` a vložte výsledek do `password_hash`. Dlouhé náhodné heslo uchovejte odděleně.
-4. Nastavte webový kořen (DocumentRoot) **přesně** na složku `public/`. Soubory `config.php`, `src/` a ostatní soubory v kořeni projektu nesmějí být veřejně přístupné. Pro lokální vyzkoušení spusťte z kořene projektu `php -S localhost:8000 -t public` a otevřete `http://localhost:8000`.
-5. V `max_send_sats` zvolte nejvyšší částku jedné platby. Začněte s malým limitem a testovací peněženkou. Při prvním použití porovnejte částky v historii s LNbits; `history_amount_unit` nastavte na `msat` pro starší API nebo `sat`, pokud vaše instance vrací částku historie v sat. Zůstatek `/api/v1/wallet` je v msat.
+- PHP **8.1+**, `curl`, `pdo_sqlite`, `sodium`, `openssl`, sessions; HTTPS pro veřejnou doménu.
+- Dostupný SMTP server s **STARTTLS** na portu 587 a platným certifikátem.
+- LNbits instance umožňující pod vaším účtem vytvořit další peněženku pomocí `POST /api/v1/wallet` s účetním Bearer/ACL tokenem. Verzi a skutečné oprávnění ověřte ve **vlastní instanci** přes `/docs`; obecná dokumentace LNbits se podle verze liší. Token jedné peněženky (`admin_key`) nezakládá další peněženky.
+- Soukromý adresář mimo webový kořen pro databázi a `config.php`. SQLite databáze a šifrovací klíč vyžadují pravidelné zálohy; bez šifrovacího klíče se záznamy nedají dešifrovat.
 
-Při provozu za HTTPS reverzní proxy musí PHP správně vidět `$_SERVER['HTTPS'] = 'on'`. Nezakládejte bezpečnostní rozhodnutí na libovolném `X-Forwarded-Proto` od návštěvníka.
+## Instalace a zachování stávající peněženky
 
-## Chování plateb
+1. Udělejte zálohu aplikace a stávajícího `config.php`. Nová verze mění způsob přihlašování a vyžaduje databázi; nevydávejte ji za funkční, dokud nenastavíte SMTP a token účtu. Nasazení proveďte s DocumentRoot **přesně** na `public/`.
+2. Zkopírujte `config.example.php` do `config.php` mimo `public/`. Vygenerujte vlastní `app_key` příkazem `php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'`. Nastavte `app_url`, SMTP a absolutní `database_path` v soukromém zapisovatelném adresáři (např. `data/`). **Token sdílený v chatu nepoužívejte**; vystavte nový token pro správu peněženek, pokud to vaše LNbits podporuje. Ukládejte jej jen na serveru. Omezte přístupová práva `config.php` i adresáře `data/`.
+3. Ještě před přihlášením dalších uživatelů přiřaďte **dosavadní** LNbits peněženku svému e-mailu příkazem `php bin/import_wallet.php`. Zadáte e-mail, dosavadní `invoice_key` a `admin_key` **interaktivně na serveru**; skript ověří ID peněženky u LNbits a uloží klíče šifrovaně. Nemigruje ani neodesílá prostředky. Pak se na webu přihlaste tímto e-mailem a kódem.
+4. Před otevřením registrace otestujte doručení kódu a vytvoření další **prázdné** peněženky na malých částkách. Upravte `max_send_sats` a `max_invoice_sats`. `history_amount_unit` nastavte dle odpovědi vaší verze LNbits (`msat` nebo `sat`); zůstatek API je v `msat`.
 
-- **Přijmout:** `POST /api/v1/payments` s `out:false`, pevnou částkou v sat a hodinovou platností. QR kód se generuje lokálně v prohlížeči, jeho text se neposílá externí QR službě. Stav faktury se pravidelně ověřuje přes PHP.
-- **Odeslat:** vložte BOLT11 fakturu s pevnou částkou. PHP načte a zkontroluje částku v prefixu BOLT11, vyžádá dekódování od LNbits a v druhém kroku vyžaduje potvrzení. Pro samotné zaplacení použije admin key. Faktury bez pevné částky, LNURL a on-chain adresy nejsou podporovány.
-- **Po výpadku spojení při odesílání:** výsledek může být nejistý. Aplikace stejný požadavek automaticky neopakuje; před dalším pokusem zkontrolujte LNbits a historii. LNbits může připočíst poplatek za směrování nad částku na faktuře.
-- **Historie:** nejvýše posledních 100 záznamů. U starších LNbits se mohou pole stavu nebo časové údaje mírně lišit; při první instalaci porovnejte s nativním rozhraním instance.
+Při reverzní proxy musí webový PHP proces dostávat `$_SERVER['HTTPS']='on'`. Neukládejte klíče ani SMTP heslo do GitHubu nebo JavaScriptu. PHP proces potřebuje zapisovat do složky databáze včetně souborů SQLite `-wal`/`-shm`.
 
-Přístupové klíče patří pouze do `config.php`, mimo webový kořen. Jedno heslo zde chrání jedinou LNbits peněženku. Pro účty více zákazníků je třeba samostatné ověřování uživatelů, oddělené peněženky a pravidla pro správu klíčů. Lightning prostředky spravuje provozovatel připojené LNbits instance a její zdroj financování; nejde o peněženku se seedem u uživatele.
+### E-mail a účty
 
-Web lze připnout na plochu. Service worker ukládá **pouze statické CSS, JS a ikonu**; HTML, API odpovědi, faktury a klíče neukládá. Platby a aktuální zůstatek vyžadují připojení.
+- Formulář vždy požádá o e-mail. Po ověření jednorázovým kódem se vytvoří peněženka, pokud ještě neexistuje; uživatel nezadává trvalé heslo. Kód má platnost 10 minut, pět pokusů a serverové omezení rychlosti odesílání. Opakované požadavky dostávají stejnou obecnou odpověď.
+- Relace vyprší po 30 minutách bez uživatelské akce. Automatické obnovení přehledu tuto dobu neprodlužuje.
+- Při platbě na dosud neznámý e-mail se vytvoří peněženka příjemce. Po potvrzení částky přijme platbu na vlastní LN fakturu a může se přihlásit teprve po ověření přístupu do schránky. **Před potvrzením zkontrolujte adresu:** překlep nebo nedoručitelná schránka může prostředky uzamknout v peněžence, kterou musí vyřešit provozovatel.
+- Před voláním odeslání se uloží ID převodu a příjemcova faktura. Nejistý výsledek spojení se automaticky neopakuje. Stav lze ověřit přes formulář „Ověřit převod podle ID“; kdyby se protokol LNbits a databáze rozešly, zkontrolujte historii obou peněženek přímo na instanci.
+- Vytvoření LNbits peněženky není atomické s místní SQLite databází. Při výpadku mezi těmito kroky může zůstat prázdná peněženka bez vazby a lokální účet ve stavu vytváření. Najděte peněženku v LNbits podle názvu `Lite Wallet <prvních 12 znaků ID>` a spojte ji pomocí `php bin/import_wallet.php` se správným e-mailem; **nezkoušejte automaticky vytvářet další peněženku**.
 
-### Soubory
+## Struktura
 
-| Soubor | Úloha |
+| Složka | Účel |
 | --- | --- |
-| `public/index.php` | Přihlášení a původní design Lite Wallet upravený pro LN |
-| `public/api.php` | Autorizované operace, limity, potvrzení platby |
-| `src/LnbitsClient.php` | cURL adaptér k LNbits bez přesměrování a s ověřením TLS |
-| `src/InvoiceAmount.php` | Čtení pevné částky z BOLT11 |
-| `public/assets/app.js` | Navigace, zobrazení, QR, obnova a potvrzení |
-| `public/assets/qrcodegen.js` | QR Code generator od Project Nayuki (MIT licence ponechána v souboru) |
+| `public/` | Jediné veřejné PHP vstupy, statické soubory a PWA |
+| `src/Http/` + `src/views/` | Tenké controllery, bezpečnostní hlavičky a HTML šablona |
+| `src/Domain/` | Přihlašování, platební operace a pravidla převodu |
+| `src/Infrastructure/` | SQLite, SMTP, šifrování klíčů a repozitáře |
+| `src/Support/` | Konfigurace a izolovaná relace |
+| `bin/import_wallet.php` | Jednorázové převzetí dosavadní peněženky |
+| `tests/` | Mock LNbits a test e-mailových kódů a plateb |
 
-Projekt nevyžaduje Node.js při provozu. Přibalený QR JavaScript vznikl překladem MIT zdroje [Project Nayuki](https://github.com/nayuki/QR-Code-generator) do JavaScriptu.
+Lokální test: `python3 tests/smoke.py` (vyžaduje PHP s `pdo_sqlite`, `openssl` v PATH). Test používá dočasné SQLite a falešné servery LNbits a STARTTLS SMTP. Server žádnou živou platbu při testu neprovádí.
+
+QR kódy Lightning faktur se generují lokálně; knihovna [Project Nayuki](https://github.com/nayuki/QR-Code-generator) je použita s MIT licencí. Service worker ukládá jen statické soubory. PHP nasazení nepotřebuje Node.js.
