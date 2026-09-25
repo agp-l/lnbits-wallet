@@ -34,6 +34,12 @@ final class IndexController
                             $id = $this->app->auth->verify($email, trim((string) ($_POST['code'] ?? '')));
                             $this->app->session->login($id);
                             header('Location: ./', true, 303); exit;
+                        case 'login_password':
+                            $email = Email::normalize((string) ($_POST['email'] ?? ''));
+                            $id = $this->app->auth->loginWithPassword($email, (string) ($_POST['password'] ?? ''),
+                                (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+                            $this->app->session->login($id, 'password');
+                            header('Location: ./', true, 303); exit;
                     }
                 } catch (\Throwable $e) {
                     error_log('Lite Wallet login: ' . get_class($e));
@@ -43,6 +49,8 @@ final class IndexController
         }
         return ['user' => $this->app->user(), 'error' => $error, 'notice' => $notice,
             'maxSendSats' => (int) $this->app->config->get('max_send_sats', 10000),
+            'passwordLoginOpen' => ($_POST['action'] ?? '') === 'login_password',
+            'freshEmailLogin' => $this->app->session->freshEmailLogin(),
             'pendingEmail' => (string) ($this->app->session->get('pending_email') ?? ''), 'csrf' => $this->app->session->csrf()];
     }
 }

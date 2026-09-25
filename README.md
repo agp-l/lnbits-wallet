@@ -1,6 +1,6 @@
 # Lite Wallet · Lightning
 
-Víceuživatelská peněženka v PHP nad oddělenými peněženkami jednoho účtu LNbits. Každý e-mail má vlastní zůstatek a historii. Přístup se potvrzuje osmimístným **jednorázovým kódem** doručeným přes SMTP; aplikace neposílá trvalá hesla e-mailem. Platbu lze poslat uživateli Lite Wallet podle e-mailu, na **Lightning adresu** jiné služby (`jmeno@domena`) nebo zaplatit BOLT11 fakturu. Platby probíhají přes Lightning; e-mail ani Lightning adresa nejsou bitcoinové on-chain adresy. LNbits a jeho funding source prostředky spravují; uživatelé nemají vlastní seed.
+Víceuživatelská peněženka v PHP nad oddělenými peněženkami jednoho účtu LNbits. Každý e-mail má vlastní zůstatek a historii. Přístup se potvrzuje osmimístným **jednorázovým kódem** doručeným přes SMTP; po prvním přihlášení lze v nastavení zapnout také vlastní heslo. Aplikace neposílá trvalá hesla e-mailem. Platbu lze poslat uživateli Lite Wallet podle e-mailu, na **Lightning adresu** jiné služby (`jmeno@domena`) nebo zaplatit BOLT11 fakturu. Platby probíhají přes Lightning; e-mail ani Lightning adresa nejsou bitcoinové on-chain adresy. LNbits a jeho funding source prostředky spravují; uživatelé nemají vlastní seed.
 
 ## Požadavky
 
@@ -21,6 +21,8 @@ Víceuživatelská peněženka v PHP nad oddělenými peněženkami jednoho úč
 
 Nové peněženky vytvořené aplikací mají v LNbits jako název e-mail účtu; vazba v databázi zůstává na stabilním `wallet_id`. Dřívější automaticky vytvořené názvy `Lite Wallet …` lze nejprve prohlédnout příkazem `php bin/rename_wallets.php` a pak přejmenovat pomocí `php bin/rename_wallets.php --apply`. Příkaz přeskočí peněženky s vlastním názvem a porovná jejich ID v LNbits. E-mail bude viditelný v LNbits administraci; ID peněženky e-mail před správcem neskrývá.
 
+**Aktualizace existující MySQL databáze na verzi s heslem:** Ještě před aktualizací souborů otevřete v phpMyAdmin databázi peněženky, kartu **SQL**, a spusťte jednou obsah [`sql/upgrade_password.mysql.sql`](sql/upgrade_password.mysql.sql). Přidá pouze sloupec `users.password_hash`; stávající účty a peněženky zůstanou stejné. Poté aktualizujte soubory a spusťte `php bin/check_database.php`. Nové instalace importují `sql/schema.mysql.sql` a tento krok přeskočí. Stávající SQLite databáze si sloupec doplní automaticky při prvním otevření.
+
 Při reverzní proxy musí webový PHP proces dostávat `$_SERVER['HTTPS']='on'`. Neukládejte klíče ani SMTP heslo do GitHubu nebo JavaScriptu. Přes phpMyAdmin uvidíte uživatele a převody; klíče peněženek jsou v databázi zašifrované. Nezadávejte skutečná hesla do ukázkového souboru ani do GitHubu.
 
 ### Místní ladění
@@ -35,10 +37,10 @@ XAMPP bez `sodium` funguje s OpenSSL a šifrou AES-256-GCM: ověřte `/opt/lampp
 
 Na stránce **Odeslat** je jeden formulář se dvěma režimy. Výchozí **Poslat člověku e-mailem** používá e-mail jako identifikátor účtu Lite Wallet; nový příjemce získá peněženku a zprávu. **Zaplatit do jiné peněženky** přijímá Lightning adresu nebo fakturu BOLT11; částka se zadává pouze pro adresu, u faktury je již určená. Lightning adresa může vypadat úplně stejně jako e-mail místního uživatele, proto způsob odeslání určuje výslovně zvolený režim. Nikdy se automaticky nepřepíná podle existence adresy. U Lightning adresy aplikace požádá LNbits o její ověření, zkontroluje rozsah částek a po potvrzení zaplatí přes LNURL; v místní databázi nevytváří uživatele. Tato funkce vyžaduje na vaší instanci LNbits funkční `/api/v1/lnurlscan/{code}` a `POST /api/v1/payments/lnurl`; pokud instance endpointy nepodporuje, vrátí se chyba API.
 
-- Formulář vždy požádá o e-mail. Po ověření jednorázovým kódem se vytvoří peněženka, pokud ještě neexistuje; uživatel nezadává trvalé heslo. Kód má platnost 10 minut, pět pokusů a serverové omezení rychlosti odesílání. Opakované požadavky dostávají stejnou obecnou odpověď.
+- Při prvním přihlášení uživatel zadá e-mail a jednorázový kód; po ověření se vytvoří peněženka, pokud ještě neexistuje. V nastavení si může nepovinně nastavit heslo. Další přihlášení pak funguje heslem nebo e-mailovým kódem; kód lze použít i pro obnovení zapomenutého hesla. Heslo se ukládá jako hash PHP `password_hash` (na PHP 8.0 bcrypt), nesděluje se e-mailem. Pro změnu hesla je třeba znát stávající heslo nebo se v posledních 10 minutách přihlásit e-mailovým kódem. Pokusy o přihlášení heslem jsou omezeny podle IP a e-mailu. Jednorázový kód platí 10 minut, má pět pokusů a omezenou rychlost odesílání.
 - Relace vyprší po 30 minutách bez uživatelské akce. Automatické obnovení přehledu tuto dobu neprodlužuje.
 - Při platbě na dosud neznámý e-mail se vytvoří peněženka příjemce. Po potvrzení částky přijme platbu na vlastní LN fakturu a může se přihlásit teprve po ověření přístupu do schránky. **Před potvrzením zkontrolujte adresu:** překlep nebo nedoručitelná schránka může prostředky uzamknout v peněžence, kterou musí vyřešit provozovatel.
-- Před voláním odeslání se uloží ID převodu a příjemcova faktura. Nejistý výsledek spojení se automaticky neopakuje. Stav lze ověřit přes formulář „Ověřit převod podle ID“; kdyby se protokol LNbits a databáze rozešly, zkontrolujte historii obou peněženek přímo na instanci.
+- Před voláním odeslání se uloží interní ID převodu a příjemcova faktura. Nejistý výsledek spojení se automaticky neopakuje. Aplikace sama ověřuje poslední e-mailový převod a zobrazuje jeho stav na obrazovce Odeslat bez zadávání ID. Kdyby se protokol LNbits a databáze rozešly, provozovatel zkontroluje historii obou peněženek přímo na instanci.
 - Vytvoření LNbits peněženky není atomické s místní databází. Při výpadku mezi těmito kroky může zůstat prázdná peněženka bez vazby a lokální účet ve stavu vytváření. Najděte peněženku v LNbits podle e-mailu (starší verze používaly název `Lite Wallet <prvních 12 znaků ID>`), ověřte její `wallet_id` a přiřaďte ji správnému účtu řízeným zásahem; **nezkoušejte automaticky vytvářet další peněženku**.
 
 ## Struktura

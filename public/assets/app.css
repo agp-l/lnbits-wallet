@@ -222,5 +222,6 @@
 .send-mode:hover { border-color: var(--green); }
 .send-mode[aria-pressed="true"] { border-color: var(--green); background: var(--green-light); color: var(--green-dark); }
 .send-description { min-height: 3.1em; }
-.transfer-status { margin-top: 14px; }
-.transfer-status summary { cursor: pointer; color: var(--green-dark); font-size: 12px; font-weight: 700; }
+.password-login { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 16px; }
+.password-login summary { cursor: pointer; color: var(--green-dark); font-size: 13px; font-weight: 700; }
+.password-settings { margin-top: 16px; }

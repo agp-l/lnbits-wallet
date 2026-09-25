@@ -22,10 +22,15 @@ final class Session
     }
     public function id(): ?string { return is_string($_SESSION['user_id'] ?? null) ? $_SESSION['user_id'] : null; }
     public function touch(): void { $_SESSION['login_at'] = time(); }
-    public function login(string $id): void
+    public function login(string $id, string $method = 'code'): void
     {
         session_regenerate_id(true);
-        $_SESSION = ['user_id' => $id, 'login_at' => time(), 'csrf' => bin2hex(random_bytes(32))];
+        $_SESSION = ['user_id' => $id, 'login_at' => time(), 'auth_at' => time(), 'auth_method' => $method,
+            'csrf' => bin2hex(random_bytes(32))];
+    }
+    public function freshEmailLogin(): bool
+    {
+        return ($_SESSION['auth_method'] ?? '') === 'code' && time() - (int) ($_SESSION['auth_at'] ?? 0) <= 600;
     }
     public function logout(): void { $_SESSION = []; session_regenerate_id(true); }
     public function csrf(): string { return (string) ($_SESSION['csrf'] ?? ''); }

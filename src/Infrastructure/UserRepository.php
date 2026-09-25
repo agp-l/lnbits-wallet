@@ -66,6 +66,14 @@ final class UserRepository
             if ($check->fetchColumn() === false) { throw new RuntimeException('Účet nelze dokončit.'); }
         }
     }
+    public function setPasswordHash(string $id, ?string $previous, string $hash): void
+    {
+        $sql = 'UPDATE users SET password_hash=? WHERE id=? AND verified_at IS NOT NULL AND wallet_id IS NOT NULL'
+            . ($previous === null ? ' AND password_hash IS NULL' : ' AND password_hash=?');
+        $q = $this->db->pdo->prepare($sql);
+        $q->execute($previous === null ? [$hash, $id] : [$hash, $id, $previous]);
+        if ($q->rowCount() !== 1) { throw new RuntimeException('Heslo se nepodařilo uložit. Obnovte stránku a zkuste to znovu.'); }
+    }
     public function keys(array $user): array
     {
         if (empty($user['wallet_id']) || empty($user['admin_key']) || empty($user['invoice_key'])) { throw new RuntimeException('Peněženka není připravena.'); }

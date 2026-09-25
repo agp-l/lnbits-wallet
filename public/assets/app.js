@@ -72,6 +72,7 @@
     screen.scrollTop = 0;
     screen.focus({ preventScroll: true });
     if (view === 'activity') refresh();
+    if (view === 'send') checkPendingTransfer();
   }
 
   function showModal(title, description, details, action) {
@@ -187,6 +188,23 @@
   }
   function stopInvoicePoll() { clearInterval(invoicePoll); invoicePoll = null; }
 
+  async function checkPendingTransfer() {
+    const notice = $('#transferNotice');
+    try {
+      const { state } = await api('email_latest_status');
+      const messages = {
+        pending: 'Stav posledního převodu na e-mail se stále ověřuje. Neodesílejte ho znovu.',
+        paid: 'Poslední převod na e-mail dorazil. Podrobnosti najdete v historii.',
+        failed: 'Poslední převod na e-mail se nezdařil. Podrobnosti najdete v historii.',
+      };
+      notice.hidden = !messages[state];
+      if (!notice.hidden) notice.textContent = messages[state];
+    } catch (_) {
+      notice.hidden = false;
+      notice.textContent = 'Stav převodu teď nelze ověřit. Před dalším odesláním zkontrolujte historii.';
+    }
+  }
+
   $('#receiveForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     const amount = Number($('#receiveAmount').value);
@@ -239,17 +257,19 @@
       if (!invoice && (!Number.isSafeInteger(amount) || amount <= 0)) throw new Error('Zadejte platnou částku v sat.');
       if (!external) {
         const preview = await api('email_preview', { email: recipient, amount });
-        // The preview ID is also the status ID. Keep it if the send response is lost.
-        $('#transferId').value = preview.token;
-        try { sessionStorage.setItem('lastEmailTransferId', preview.token); } catch (_) { /* Storage is optional. */ }
+        // The server records this transfer before asking LNbits to pay it.
         showModal('Potvrdit převod', 'Posíláte člověku e-mailem přes Lite Wallet. Pokud účet ještě nemá, založíme mu jej. Převod může mít poplatek.', [
-          ['E-mail příjemce', preview.email], ['Částka', `${formatSat(preview.amount_msat)} sat`], ['ID pro ověření', preview.token]
+          ['E-mail příjemce', preview.email], ['Částka', `${formatSat(preview.amount_msat)} sat`]
         ], async () => {
-          const sent = await api('email_send', { token: preview.token });
-          $('#transferId').value = sent.id;
-          $('#emailRecipient').value = ''; $('#sendAmount').value = '';
-          refresh();
-          return { title: 'Převod zadán', description: sent.message, details: [['ID převodu', sent.id]] };
+          try {
+            const sent = await api('email_send', { token: preview.token });
+            $('#emailRecipient').value = ''; $('#sendAmount').value = '';
+            refresh(); checkPendingTransfer();
+            return { title: 'Převod zadán', description: sent.message, details: [] };
+          } catch (error) {
+            checkPendingTransfer();
+            throw error;
+          }
         });
       } else if (invoice) {
         const preview = await api('preview', { invoice: recipient });
@@ -259,7 +279,7 @@
           const sent = await api('send', { token: preview.token });
           $('#externalRecipient').value = ''; syncSendFields();
           refresh();
-          return { title: 'Platba odeslána', description: 'Požadavek byl přijat. Ověřte výsledek v historii.', details: [['ID platby', sent.id]] };
+          return { title: 'Platba odeslána', description: 'Požadavek byl přijat. Ověřte výsledek v historii.', details: [] };
         });
       } else {
         const preview = await api('address_preview', { address: recipient, amount });
@@ -270,21 +290,26 @@
           const sent = await api('address_send', { token: preview.token });
           $('#externalRecipient').value = ''; $('#sendAmount').value = '';
           refresh();
-          return { title: 'Platba zadána', description: sent.message, details: [['ID platby', sent.id]] };
+          return { title: 'Platba zadána', description: sent.message, details: [] };
         });
       }
     } catch (error) { toast(error.message); }
     finally { button.disabled = false; }
   });
-  $('#emailStatusForm').addEventListener('submit', async (event) => {
+  $('#passwordForm').addEventListener('submit', async (event) => {
     event.preventDefault();
+    const button = event.target.querySelector('[type="submit"]'); button.disabled = true;
+    const message = $('#passwordMessage');
     try {
-      const id = $('#transferId').value.trim();
-      const state = await api('email_status', undefined, { id });
-      const message = ({ paid: 'Příjemci bylo připsáno.', pending: 'Stav je zatím nejasný nebo platba čeká. Neodesílejte znovu.', failed: 'LNbits hlásí neúspěšný převod.' })[state.state] || 'Stav převodu není dostupný.';
-      showModal('Stav převodu', message, [['ID převodu', id]]);
-      if (state.state === 'paid') refresh();
-    } catch (error) { toast(error.message); }
+      await api('password_set', { current: $('#currentPassword').value,
+        password: $('#newPassword').value, confirmation: $('#confirmPassword').value });
+      event.target.reset();
+      message.hidden = false;
+      message.textContent = 'Heslo je uložené. Odteď se jím můžete přihlásit.';
+      $('#passwordDescription').textContent = 'Heslo můžete změnit zde. Pokud ho zapomenete, přihlaste se e-mailovým kódem.';
+    } catch (error) {
+      message.hidden = false; message.textContent = error.message;
+    } finally { button.disabled = false; }
   });
 
   $$('[data-go]').forEach((button) => button.addEventListener('click', () => goTo(button.dataset.go)));
@@ -304,8 +329,8 @@
   $('#settingsVisibility').addEventListener('click', toggleBalance);
   $('#refreshHistory').addEventListener('click', refresh);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { refresh(); checkInvoice(); } });
-  setInterval(() => { if (!document.hidden) refresh(); }, 30000);
-  try { $('#transferId').value = sessionStorage.getItem('lastEmailTransferId') || ''; } catch (_) { /* Private browsing may disable storage. */ }
+  setInterval(() => { if (!document.hidden) { refresh(); checkPendingTransfer(); } }, 30000);
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
   refresh();
+  checkPendingTransfer();
 })();

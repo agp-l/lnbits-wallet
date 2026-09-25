@@ -50,6 +50,17 @@ $maxSendSats = (int) ($state['maxSendSats'] ?? 10000);
         <button type="submit" class="action action-secondary full-button">Přihlásit se</button>
       </form>
       <?php endif; ?>
+      <details class="password-login" <?= !empty($state['passwordLoginOpen']) ? 'open' : '' ?>>
+        <summary>Máte nastavené heslo? Přihlaste se jím</summary>
+        <form method="post" autocomplete="on">
+          <input type="hidden" name="action" value="login_password">
+          <input type="hidden" name="csrf" value="<?= html($csrf) ?>">
+          <div class="field"><label for="passwordEmail">E-mail</label><input id="passwordEmail" name="email" type="email" autocomplete="username" value="<?= html($pendingEmail) ?>" required></div>
+          <div class="field"><label for="loginPassword">Heslo</label><input id="loginPassword" name="password" type="password" autocomplete="current-password" required></div>
+          <button type="submit" class="action action-primary full-button">Přihlásit se heslem</button>
+          <p class="small-note">Zapomenuté heslo? Přihlaste se nahoře e-mailovým kódem a v nastavení si vytvořte nové.</p>
+        </form>
+      </details>
     <?php endif; ?>
   </div></div>
 <?php else: ?>
@@ -111,16 +122,20 @@ $maxSendSats = (int) ($state['maxSendSats'] ?? 10000);
           <button type="submit" class="action action-primary full-button">Zkontrolovat platbu</button>
           <p class="small-note" id="sendNote">Převod probíhá přes Lightning a může mít poplatek. Odeslání potvrdíte v dalším kroku.</p>
         </form>
-        <details class="card transfer-status"><summary>Ověřit stav převodu podle ID</summary>
-          <form id="emailStatusForm" autocomplete="off">
-            <div class="field"><label for="transferId">ID převodu při nejasném výsledku</label><input id="transferId" type="text" pattern="[0-9a-f]{32}" minlength="32" maxlength="32" spellcheck="false" autocomplete="off" required></div>
-            <button type="submit" class="action action-secondary full-button">Ověřit stav</button>
-          </form>
-        </details>
+        <p class="notice" id="transferNotice" role="status" aria-live="polite" hidden></p>
       </section>
       <section class="view" data-view="settings" aria-label="Nastavení" hidden>
         <div class="page-head"><p class="eyebrow">Aplikace</p><h1>Nastavení</h1><p class="lead">Účet: <?= html($user['email']) ?></p></div>
         <div class="card settings-card"><button type="button" class="setting-row" id="settingsVisibility"><span class="transaction-icon"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg></span><span class="copy"><strong>Viditelnost zůstatku</strong><small id="visibilityText">Částky se zobrazují</small></span><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevron"/></svg></button></div>
+        <form id="passwordForm" class="card password-settings" autocomplete="on">
+          <h2 class="card-title"><?= empty($user['password_hash']) ? 'Nastavit heslo' : 'Změnit heslo' ?></h2>
+          <p class="card-desc" id="passwordDescription"><?= empty($user['password_hash']) ? 'Heslem se pak můžete přihlásit bez čekání na e-mail. Přihlášení kódem zůstane dostupné.' : 'Heslo lze změnit. Pokud jste ho zapomněli, přihlaste se e-mailovým kódem a nastavte nové.' ?></p>
+          <div class="field" id="currentPasswordField" <?= empty($user['password_hash']) || !empty($state['freshEmailLogin']) ? 'hidden' : '' ?>><label for="currentPassword">Současné heslo</label><input id="currentPassword" type="password" autocomplete="current-password" <?= empty($user['password_hash']) || !empty($state['freshEmailLogin']) ? '' : 'required' ?>></div>
+          <div class="field"><label for="newPassword">Nové heslo</label><input id="newPassword" type="password" autocomplete="new-password" minlength="12" maxlength="72" required><small>Alespoň 12 znaků, maximálně 72 bajtů. Nikdy ho neposíláme e-mailem.</small></div>
+          <div class="field"><label for="confirmPassword">Nové heslo znovu</label><input id="confirmPassword" type="password" autocomplete="new-password" required></div>
+          <button type="submit" class="action action-primary full-button">Uložit heslo</button>
+          <p class="small-note" id="passwordMessage" role="status" aria-live="polite" hidden></p>
+        </form>
         <form method="post"><input type="hidden" name="csrf" value="<?= html($csrf) ?>"><input type="hidden" name="action" value="logout"><button class="action action-secondary full-button" type="submit">Odhlásit se</button></form>
         <div class="notice"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><span>Platby spravuje připojený LNbits server. Tato aplikace neobsahuje vlastní seed.</span></div>
       </section>

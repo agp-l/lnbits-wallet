@@ -46,9 +46,9 @@ final class Database
             throw new RuntimeException('Nelze se připojit k MySQL/MariaDB. Zkontrolujte config.php.', 0, $e);
         }
         try {
-            $this->pdo->query('SELECT id FROM users LIMIT 0');
+            $this->pdo->query('SELECT password_hash FROM users LIMIT 0');
         } catch (PDOException $e) {
-            throw new RuntimeException('V databázi chybí tabulky peněženky. Importujte sql/schema.mysql.sql v phpMyAdmin.', 0, $e);
+            throw new RuntimeException('V databázi chybí tabulky nebo sloupec pro heslo. Pro existující instalaci spusťte v phpMyAdmin sql/upgrade_password.mysql.sql.', 0, $e);
         }
     }
 
@@ -65,7 +65,7 @@ final class Database
         ]);
         $this->pdo->exec('PRAGMA foreign_keys=ON; PRAGMA busy_timeout=10000; PRAGMA journal_mode=WAL;');
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, verified_at INTEGER,
+            id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, verified_at INTEGER, password_hash TEXT,
             wallet_id TEXT UNIQUE, wallet_name TEXT,
             invoice_key TEXT, admin_key TEXT, provisioning_at INTEGER,
             created_at INTEGER NOT NULL
@@ -84,6 +84,10 @@ final class Database
             FOREIGN KEY(sender_id) REFERENCES users(id), FOREIGN KEY(recipient_id) REFERENCES users(id)
         );
         CREATE INDEX IF NOT EXISTS transfers_sender ON transfers(sender_id, created_at);");
+        $columns = $this->pdo->query('PRAGMA table_info(users)')->fetchAll();
+        if (!in_array('password_hash', array_column($columns, 'name'), true)) {
+            $this->pdo->exec('ALTER TABLE users ADD COLUMN password_hash TEXT');
+        }
         @chmod($path, 0600);
     }
 

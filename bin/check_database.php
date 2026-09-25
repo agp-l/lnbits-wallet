@@ -17,6 +17,7 @@ try {
     foreach (['users', 'login_codes', 'rate_limits', 'transfers'] as $table) {
         $db->pdo->query("SELECT 1 FROM $table LIMIT 0");
     }
+    $db->pdo->query('SELECT password_hash FROM users LIMIT 0');
     fwrite(STDOUT, ($db->isMysql() ? 'MySQL/MariaDB' : 'SQLite') . ": připojení a čtyři tabulky jsou v pořádku.\n");
 } catch (Throwable $e) {
     fwrite(STDERR, 'Kontrola databáze selhala: ' . $e->getMessage() . "\n");

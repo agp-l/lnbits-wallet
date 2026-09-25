@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
     id CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
     email VARCHAR(254) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,
     verified_at BIGINT NULL,
+    password_hash VARCHAR(255) NULL,
     wallet_id VARCHAR(191) CHARACTER SET ascii COLLATE ascii_bin NULL UNIQUE,
     wallet_name VARCHAR(255) NULL,
     invoice_key TEXT NULL,

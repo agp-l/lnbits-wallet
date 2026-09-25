@@ -154,6 +154,8 @@ def main():
                     assert len(json.loads((root / 'state.json').read_text())['wallets']) == 1
                 page = post({'action': 'verify_code', 'code': code})
                 assert 'LIGHTNING PENĚŽENKA' in page, page[:500]
+                assert page.count('id="sendForm"') == 1 and 'id="transferId"' not in page
+                assert 'Poslat člověku e-mailem' in page and 'id="passwordForm"' in page
                 token = re.search(r'<meta name="csrf-token" content="([0-9a-f]{64})"', page).group(1)
                 def call(action, body=None, extra=''):
                     kwargs = {'headers': {'X-CSRF-Token': token, 'Content-Type': 'application/json'}}
@@ -162,7 +164,52 @@ def main():
                     with opener.open(request) as result: return json.load(result)
                 return call
 
+            def password_login(email, password, success=True):
+                opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+                page = opener.open(base).read().decode()
+                csrf = re.search(r'name="csrf" value="([0-9a-f]{64})"', page).group(1)
+                request = urllib.request.Request(base, data=urllib.parse.urlencode({
+                    'csrf': csrf, 'action': 'login_password', 'email': email, 'password': password,
+                }).encode())
+                page = opener.open(request).read().decode()
+                if not success:
+                    assert 'Neplatný e-mail nebo heslo' in page
+                    return None
+                assert 'LIGHTNING PENĚŽENKA' in page and 'id="passwordForm"' in page
+                token = re.search(r'<meta name="csrf-token" content="([0-9a-f]{64})"', page).group(1)
+                def call(action, body=None):
+                    kwargs = {'headers': {'X-CSRF-Token': token, 'Content-Type': 'application/json'}}
+                    if body is not None: kwargs['data'] = json.dumps(body).encode()
+                    with opener.open(urllib.request.Request(base + 'api.php?action=' + action, **kwargs)) as result:
+                        return json.load(result)
+                return call
+
             alice = login('alice@example.com')
+            assert alice('email_latest_status')['state'] == 'none'
+            password_login('nobody@example.com', 'Never used password123', success=False)
+            with sqlite3.connect(root / 'wallet.sqlite') as db:
+                assert db.execute('SELECT COUNT(*) FROM users WHERE email=?', ('nobody@example.com',)).fetchone()[0] == 0
+            old_password = 'test password 12345'
+            updated_password = 'another password 12345'
+            reset_password = 'reset password 12345'
+            alice('password_set', {'password': old_password, 'confirmation': old_password})
+            with sqlite3.connect(root / 'wallet.sqlite') as db:
+                stored = db.execute('SELECT password_hash FROM users WHERE email=?', ('alice@example.com',)).fetchone()[0]
+                assert stored.startswith('$2y$') and old_password not in stored
+            password_login('alice@example.com', 'wrong password 12345', success=False)
+            password_user = password_login('alice@example.com', old_password)
+            try:
+                password_user('password_set', {'password': updated_password, 'confirmation': updated_password,
+                                               'current': 'wrong password'})
+                raise AssertionError('Password changed without current password')
+            except urllib.error.HTTPError as err:
+                assert err.code == 400
+            password_user('password_set', {'password': updated_password, 'confirmation': updated_password,
+                                           'current': old_password})
+            password_login('alice@example.com', old_password, success=False)
+            # The still-fresh e-mail-code session can recover access without the old password.
+            alice('password_set', {'password': reset_password, 'confirmation': reset_password})
+            assert password_login('alice@example.com', reset_password)('summary')['email'] == 'alice@example.com'
             assert alice('summary')['balance_msat'] == 4242000
             assert alice('email_preview', {'email': 'bob@example.com', 'amount': 100})['amount_msat'] == 100000
             try:
@@ -176,6 +223,7 @@ def main():
             sent = alice('email_send', {'token': preview['token']})
             assert re.fullmatch('[0-9a-f]{32}', sent['id'])
             assert alice('email_status', extra='&id=' + sent['id'])['state'] == 'paid'
+            assert alice('email_latest_status')['state'] == 'paid'
             assert alice('summary')['balance_msat'] == 4240000
             assert (root / 'sends.log').read_text().count('send') == 1
             try:
@@ -185,6 +233,7 @@ def main():
                 assert err.code == 400
             assert (root / 'sends.log').read_text().count('send') == 1
             bob = login('bob@example.com')
+            assert bob('email_latest_status')['state'] == 'none'
             summary = bob('summary')
             assert summary['balance_msat'] == 2000 and summary['payments'][0]['amount_msat'] == 2000
             state = json.loads((root / 'state.json').read_text())
@@ -221,6 +270,7 @@ def main():
             except urllib.error.HTTPError as err:
                 assert err.code == 400 and 'Nedostatek prostředků' in json.load(err)['error']
             assert alice('email_status', extra='&id=' + fee_short['token'])['state'] == 'failed'
+            assert alice('email_latest_status')['state'] == 'failed'
             assert alice('summary')['balance_msat'] == 4240000
             assert alice('summary')['payments'][0]['time'] == 1740000000
             assert 'admin-key-test' not in json.dumps(summary)
@@ -247,7 +297,7 @@ def main():
                 assert err.code == 400
             with sqlite3.connect(root / 'wallet.sqlite') as db:
                 assert db.execute('SELECT count(*) FROM users WHERE email=?', ('outside@example.net',)).fetchone()[0] == 0
-            print('OK: existing wallet migration, email codes, isolation, automatic wallet, email payment once, status, invoice and BOLT11')
+            print('OK: email codes, password setup/change/recovery, isolation, payments and automatic status')
         finally:
             frontend.terminate(); backend.terminate()
             frontend.wait(timeout=5); backend.wait(timeout=5)

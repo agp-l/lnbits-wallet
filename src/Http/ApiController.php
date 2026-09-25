@@ -26,6 +26,12 @@ final class ApiController
                 $body = json_decode($raw, true);
                 if (!is_array($body)) { $this->reply(['error' => 'Neplatná data požadavku.'], 400); }
             }
+            if ($method === 'POST' && $action === 'password_set') {
+                $this->app->auth->setPassword($user, (string) ($body['password'] ?? ''),
+                    (string) ($body['confirmation'] ?? ''), (string) ($body['current'] ?? ''),
+                    $this->app->session->freshEmailLogin(), (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+                $this->reply(['password_enabled' => true]);
+            }
             $wallet = $this->app->wallet($user);
             if ($method === 'GET' && $action === 'summary') { $this->reply($wallet->summary($user)); }
             if ($method === 'POST' && $action === 'receive') { $this->reply($wallet->receive($body), 201); }
@@ -37,6 +43,7 @@ final class ApiController
             if ($method === 'POST' && $action === 'email_preview') { $this->reply($this->app->transfers->preview($user, $body)); }
             if ($method === 'POST' && $action === 'email_send') { $this->reply($this->app->transfers->send($user, (string) ($body['token'] ?? '')), 201); }
             if ($method === 'GET' && $action === 'email_status') { $this->reply($this->app->transfers->status($user, (string) ($_GET['id'] ?? ''))); }
+            if ($method === 'GET' && $action === 'email_latest_status') { $this->reply($this->app->transfers->latestStatus($user)); }
             $this->reply(['error' => 'Neznámá operace.'], 404);
         } catch (\OutOfBoundsException $e) { $this->reply(['error' => $e->getMessage()], 404); }
         catch (InvalidArgumentException $e) { $this->reply(['error' => $e->getMessage()], 400); }

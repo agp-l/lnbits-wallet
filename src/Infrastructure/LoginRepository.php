@@ -47,6 +47,14 @@ final class LoginRepository
     {
         $q = $this->db->pdo->prepare('DELETE FROM login_codes WHERE email=? AND code_hash=?'); $q->execute([$email, $hash]);
     }
+    public function allowPasswordAttempt(string $email, string $ipHash): bool
+    {
+        return $this->db->write(function (PDO $pdo) use ($email, $ipHash): bool {
+            $ipAllowed = $this->allow($pdo, 'password-ip:' . $ipHash, 30, 900);
+            $emailAllowed = $this->allow($pdo, 'password-email:' . hash('sha256', $email), 10, 900);
+            return $ipAllowed && $emailAllowed;
+        });
+    }
     private function allow(PDO $pdo, string $key, int $max, int $seconds): bool
     {
         $now = time();

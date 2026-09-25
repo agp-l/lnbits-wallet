@@ -62,7 +62,7 @@ final class EmailTransferService
             throw new InvalidArgumentException($e->getMessage(), 0, $e);
         } catch (\Throwable $e) {
             // Do not retry: LNbits might have paid before the connection broke.
-            throw new RuntimeException('Stav převodu může být nejistý. Zkontrolujte jej v historii; číslo převodu: ' . $intent['id'], 0, $e);
+            throw new RuntimeException('Stav převodu může být nejistý. Neodesílejte jej znovu; aplikace stav ověří automaticky.', 0, $e);
         }
         if ($new) {
             try { $this->mailer->send($intent['email'], 'Přijetí bitcoinů přes Lightning',
@@ -77,12 +77,19 @@ final class EmailTransferService
     {
         $row = $this->transfers->bySender($id, $sender['id']);
         if ($row['state'] === 'failed') { return ['state' => 'failed', 'id' => $id]; }
+        if ($row['state'] === 'paid') { return ['state' => 'paid', 'id' => $id]; }
         $recipient = $this->users->byEmail($this->users->emailForId($row['recipient_id']));
         $state = $this->client($recipient)->status($row['invoice_id']);
         $status = strtolower((string) ($state['details']['status'] ?? ''));
         if ($state['paid'] ?? false) { $this->transfers->updateStatus($id, 'paid'); return ['state' => 'paid', 'id' => $id]; }
         if (in_array($status, ['failed', 'expired'], true)) { $this->transfers->updateStatus($id, 'failed'); return ['state' => 'failed', 'id' => $id]; }
         return ['state' => 'pending', 'id' => $id];
+    }
+
+    public function latestStatus(array $sender): array
+    {
+        $row = $this->transfers->latestBySender($sender['id']);
+        return $row ? $this->status($sender, $row['id']) : ['state' => 'none'];
     }
 
     private function client(array $user): LnbitsClient

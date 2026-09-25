@@ -24,6 +24,12 @@ final class TransferRepository
         $row = $q->fetch(); if (!$row) { throw new OutOfBoundsException('Převod nebyl nalezen.'); }
         return $row;
     }
+    public function latestBySender(string $sender): ?array
+    {
+        $q = $this->db->pdo->prepare('SELECT * FROM transfers WHERE sender_id=? ORDER BY created_at DESC, id DESC LIMIT 1');
+        $q->execute([$sender]);
+        return $q->fetch() ?: null;
+    }
     public function updateStatus(string $id, string $state): void
     {
         $q = $this->db->pdo->prepare("UPDATE transfers SET state=?,updated_at=? WHERE id=? AND state IN ('submitted','processing')");
