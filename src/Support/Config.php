@@ -14,8 +14,11 @@ final class Config
         $values = require $path;
         if (!is_array($values)) { throw new RuntimeException('Neplatný config.php.'); }
         $this->values = $values;
-        foreach (['lnbits_url', 'database_path', 'app_url', 'app_key', 'mail'] as $key) {
+        foreach (['lnbits_url', 'app_url', 'app_key', 'mail'] as $key) {
             if (empty($values[$key])) { throw new RuntimeException('V config.php chybí ' . $key . '.'); }
+        }
+        if (empty($values['database']) && empty($values['database_path'])) {
+            throw new RuntimeException('V config.php chybí nastavení database nebo database_path.');
         }
         if (!preg_match('/^[a-f0-9]{64}$/iD', (string) $values['app_key'])) {
             throw new RuntimeException('app_key musí být 32 náhodných bytů v hexadecimálním tvaru.');

@@ -29,7 +29,10 @@ final class UserRepository
     public function pending(string $email): array
     {
         return $this->db->write(function (PDO $pdo) use ($email): array {
-            $q = $pdo->prepare('INSERT OR IGNORE INTO users (id,email,created_at) VALUES (?,?,?)');
+            $sql = $this->db->isMysql()
+                ? 'INSERT INTO users (id,email,created_at) VALUES (?,?,?) ON DUPLICATE KEY UPDATE id=id'
+                : 'INSERT OR IGNORE INTO users (id,email,created_at) VALUES (?,?,?)';
+            $q = $pdo->prepare($sql);
             $q->execute([bin2hex(random_bytes(16)), $email, time()]);
             $q = $pdo->prepare('SELECT * FROM users WHERE email = ?'); $q->execute([$email]);
             return $q->fetch();
@@ -56,7 +59,12 @@ final class UserRepository
     {
         $q = $this->db->pdo->prepare('UPDATE users SET verified_at=? WHERE id=? AND wallet_id IS NOT NULL');
         $q->execute([time(), $id]);
-        if ($q->rowCount() !== 1) { throw new RuntimeException('Účet nelze dokončit.'); }
+        if ($q->rowCount() !== 1) {
+            // MySQL counts changed rows; a second login in the same second need not change verified_at.
+            $check = $this->db->pdo->prepare('SELECT id FROM users WHERE id=? AND verified_at IS NOT NULL AND wallet_id IS NOT NULL');
+            $check->execute([$id]);
+            if ($check->fetchColumn() === false) { throw new RuntimeException('Účet nelze dokončit.'); }
+        }
     }
     public function keys(array $user): array
     {
