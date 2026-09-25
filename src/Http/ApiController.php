@@ -31,6 +31,8 @@ final class ApiController
             if ($method === 'POST' && $action === 'receive') { $this->reply($wallet->receive($body), 201); }
             if ($method === 'POST' && $action === 'preview') { $this->reply($wallet->preview($body)); }
             if ($method === 'POST' && $action === 'send') { $this->reply($wallet->send($body), 201); }
+            if ($method === 'POST' && $action === 'address_preview') { $this->reply($wallet->lightningAddressPreview($body)); }
+            if ($method === 'POST' && $action === 'address_send') { $this->reply($wallet->lightningAddressSend($body), 201); }
             if ($method === 'GET' && $action === 'status') { $this->reply($wallet->status((string) ($_GET['id'] ?? ''))); }
             if ($method === 'POST' && $action === 'email_preview') { $this->reply($this->app->transfers->preview($user, $body)); }
             if ($method === 'POST' && $action === 'email_send') { $this->reply($this->app->transfers->send($user, (string) ($body['token'] ?? '')), 201); }

@@ -1,6 +1,6 @@
 # Lite Wallet · Lightning
 
-Víceuživatelská peněženka v PHP nad oddělenými peněženkami jednoho účtu LNbits. Každý e-mail má vlastní zůstatek a historii. Přístup se potvrzuje osmimístným **jednorázovým kódem** doručeným přes SMTP; aplikace neposílá trvalá hesla e-mailem. Platbu lze poslat na jiný e-mail nebo BOLT11 fakturu. **Převody na e-mail probíhají přes Lightning**, nejsou to bitcoinové on-chain transakce ani BTC adresy. LNbits a jeho funding source prostředky spravují; uživatelé nemají vlastní seed.
+Víceuživatelská peněženka v PHP nad oddělenými peněženkami jednoho účtu LNbits. Každý e-mail má vlastní zůstatek a historii. Přístup se potvrzuje osmimístným **jednorázovým kódem** doručeným přes SMTP; aplikace neposílá trvalá hesla e-mailem. Platbu lze poslat uživateli Lite Wallet podle e-mailu, na **Lightning adresu** jiné služby (`jmeno@domena`) nebo zaplatit BOLT11 fakturu. Platby probíhají přes Lightning; e-mail ani Lightning adresa nejsou bitcoinové on-chain adresy. LNbits a jeho funding source prostředky spravují; uživatelé nemají vlastní seed.
 
 ## Požadavky
 
@@ -33,11 +33,13 @@ XAMPP bez `sodium` funguje s OpenSSL a šifrou AES-256-GCM: ověřte `/opt/lampp
 
 ### E-mail a účty
 
+Ve formuláři **Poslat uživateli Lite Wallet** je e-mail identifikátor účtu v této aplikaci; nový příjemce získá peněženku a zprávu. Ve formuláři **Poslat na Lightning adresu** patří adresa cizí Lightning služby, která vypadá jako e-mail. Aplikace ji ověří přes LNbits, zkontroluje rozsah částek a po potvrzení zaplatí přes LNURL; v místní databázi nevytváří uživatele. Tato funkce vyžaduje na vaší instanci LNbits funkční `/api/v1/lnurlscan/{code}` a `POST /api/v1/payments/lnurl`; pokud instance endpointy nepodporuje, vrátí se chyba API. Pro platbu pevnou fakturou zůstává formulář BOLT11.
+
 - Formulář vždy požádá o e-mail. Po ověření jednorázovým kódem se vytvoří peněženka, pokud ještě neexistuje; uživatel nezadává trvalé heslo. Kód má platnost 10 minut, pět pokusů a serverové omezení rychlosti odesílání. Opakované požadavky dostávají stejnou obecnou odpověď.
 - Relace vyprší po 30 minutách bez uživatelské akce. Automatické obnovení přehledu tuto dobu neprodlužuje.
 - Při platbě na dosud neznámý e-mail se vytvoří peněženka příjemce. Po potvrzení částky přijme platbu na vlastní LN fakturu a může se přihlásit teprve po ověření přístupu do schránky. **Před potvrzením zkontrolujte adresu:** překlep nebo nedoručitelná schránka může prostředky uzamknout v peněžence, kterou musí vyřešit provozovatel.
 - Před voláním odeslání se uloží ID převodu a příjemcova faktura. Nejistý výsledek spojení se automaticky neopakuje. Stav lze ověřit přes formulář „Ověřit převod podle ID“; kdyby se protokol LNbits a databáze rozešly, zkontrolujte historii obou peněženek přímo na instanci.
-- Vytvoření LNbits peněženky není atomické s místní databází. Při výpadku mezi těmito kroky může zůstat prázdná peněženka bez vazby a lokální účet ve stavu vytváření. Najděte peněženku v LNbits podle názvu `Lite Wallet <prvních 12 znaků ID>` a spojte ji pomocí `php bin/import_wallet.php` se správným e-mailem; **nezkoušejte automaticky vytvářet další peněženku**.
+- Vytvoření LNbits peněženky není atomické s místní databází. Při výpadku mezi těmito kroky může zůstat prázdná peněženka bez vazby a lokální účet ve stavu vytváření. Najděte peněženku v LNbits podle e-mailu (starší verze používaly název `Lite Wallet <prvních 12 znaků ID>`), ověřte její `wallet_id` a přiřaďte ji správnému účtu řízeným zásahem; **nezkoušejte automaticky vytvářet další peněženku**.
 
 ## Struktura
 

@@ -97,9 +97,9 @@ $maxSendSats = (int) ($state['maxSendSats'] ?? 10000);
         </div>
       </section>
       <section class="view" data-view="send" aria-label="Odeslat Lightning" hidden>
-        <div class="page-head"><p class="eyebrow">Odchozí platba</p><h1>Odeslat bitcoin</h1><p class="lead">Pošlete satoshi na e-mail nebo zaplaťte Lightning fakturu.</p></div>
+        <div class="page-head"><p class="eyebrow">Odchozí platba</p><h1>Odeslat bitcoin</h1><p class="lead">Pošlete satoshi na e-mail v Lite Wallet, Lightning adresu nebo zaplaťte fakturu.</p></div>
         <form id="emailSendForm" class="card" autocomplete="off">
-          <h2 class="card-title"><svg class="icon" aria-hidden="true"><use href="#i-up"/></svg>Poslat na e-mail</h2>
+          <h2 class="card-title"><svg class="icon" aria-hidden="true"><use href="#i-up"/></svg>Poslat uživateli Lite Wallet</h2>
           <p class="card-desc">Příjemci se založí vlastní Lightning peněženka, pokud ji ještě nemá. Přístup získá kódem doručeným na tuto adresu.</p>
           <div class="field"><label for="emailRecipient">E-mail příjemce</label><input id="emailRecipient" type="email" autocomplete="off" required></div>
           <div class="field"><label for="emailAmount">Částka v sat</label><div class="form-suffix"><input id="emailAmount" type="number" min="1" max="<?= $maxSendSats ?>" step="1" inputmode="numeric" required><span>sat</span></div><small>1 až <?= number_format($maxSendSats, 0, ',', ' ') ?> sat. Příjemce musí mít jiný e-mail než vy.</small></div>
@@ -110,6 +110,14 @@ $maxSendSats = (int) ($state['maxSendSats'] ?? 10000);
           <h2 class="card-title">Ověřit převod podle ID</h2>
           <div class="field"><label for="transferId">ID převodu při nejasném výsledku</label><input id="transferId" type="text" pattern="[0-9a-f]{32}" minlength="32" maxlength="32" spellcheck="false" autocomplete="off" required></div>
           <button type="submit" class="action action-secondary full-button">Ověřit stav</button>
+        </form>
+        <div class="send-divider">nebo Lightning adresa</div>
+        <form id="addressSendForm" class="card" autocomplete="off">
+          <h2 class="card-title">Poslat na Lightning adresu</h2>
+          <p class="card-desc">Adresa jiné Lightning služby vypadá jako e-mail, například jmeno@domena.cz. Neposílá se na e-mailovou schránku.</p>
+          <div class="field"><label for="lightningAddress">Lightning adresa</label><input id="lightningAddress" type="email" autocomplete="off" placeholder="jmeno@domena.cz" required></div>
+          <div class="field"><label for="addressAmount">Částka v sat</label><div class="form-suffix"><input id="addressAmount" type="number" min="1" max="<?= $maxSendSats ?>" step="1" inputmode="numeric" required><span>sat</span></div></div>
+          <button type="submit" class="action action-primary full-button">Zkontrolovat adresu a částku</button>
         </form>
         <div class="send-divider">nebo faktura BOLT11</div>
         <form id="sendForm" class="card" autocomplete="off">

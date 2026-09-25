@@ -39,6 +39,24 @@ if ($method === 'PUT' && $path === '/api/v1/wallet') {
     $state['wallets'][$walletId]['name'] = (string) ($body['name'] ?? '');
     reply_json($state['wallets'][$walletId]);
 }
+if ($method === 'GET' && str_starts_with($path, '/api/v1/lnurlscan/')) {
+    $address = rawurldecode(substr($path, strlen('/api/v1/lnurlscan/')));
+    if ($address !== 'outside@example.net') { reply_json(['detail' => 'Lightning address not found'], 404); }
+    reply_json(['kind' => 'pay', 'minSendable' => 10000, 'maxSendable' => 1000000,
+        'description' => 'Externí platba', 'callback' => 'https://example.net/lnurl/callback']);
+}
+if ($method === 'POST' && $path === '/api/v1/payments/lnurl') {
+    if (!$admin) { reply_json(['detail' => 'Admin key required'], 403); }
+    if (($body['lnurl'] ?? null) !== 'outside@example.net') { reply_json(['detail' => 'Lightning address not found'], 404); }
+    $amount = $body['amount'] ?? null;
+    if (!is_int($amount) || $amount < 10000 || $amount > 1000000) { reply_json(['detail' => 'Amount out of range'], 400); }
+    if ($state['wallets'][$walletId]['balance'] < $amount + 1000) { reply_json(['detail' => 'Insufficient balance'], 400); }
+    $state['wallets'][$walletId]['balance'] -= $amount;
+    $id = 'lnurlpayment123456';
+    $state['payments'][$walletId][] = ['checking_id' => $id, 'amount' => -$amount, 'time' => time(), 'status' => 'success'];
+    file_put_contents(getenv('LITE_LN_TEST_SEND_LOG'), "lnurl\n", FILE_APPEND | LOCK_EX);
+    reply_json(['payment_hash' => $id], 201);
+}
 if ($method === 'GET' && $path === '/api/v1/payments') { reply_json($state['payments'][$walletId] ?? []); }
 if ($method === 'GET' && str_starts_with($path, '/api/v1/payments/')) {
     $id = basename($path);

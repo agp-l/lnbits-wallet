@@ -254,6 +254,26 @@
     } catch (error) { toast(error.message); }
   });
 
+  $('#addressSendForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = event.target.querySelector('[type="submit"]'); button.disabled = true;
+    try {
+      const amount = Number($('#addressAmount').value);
+      if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Zadejte platnou částku v sat.');
+      const preview = await api('address_preview', { address: $('#lightningAddress').value.trim(), amount });
+      showModal('Potvrdit platbu', 'Zkontrolujte Lightning adresu a částku. Platba může mít směrovací poplatek.', [
+        ['Lightning adresa', preview.address], ['Částka', `${formatSat(preview.amount_msat)} sat`],
+        ['Popis', preview.description || 'Bez popisu']
+      ], async () => {
+        const sent = await api('address_send', { token: preview.token });
+        $('#addressAmount').value = '';
+        refresh();
+        return { title: 'Platba zadána', description: sent.message, details: [['ID platby', sent.id]] };
+      });
+    } catch (error) { toast(error.message); }
+    finally { button.disabled = false; }
+  });
+
   $$('[data-go]').forEach((button) => button.addEventListener('click', () => goTo(button.dataset.go)));
   $('#menuOpen').addEventListener('click', openMenu);
   $('#menuClose').addEventListener('click', () => closeMenu());

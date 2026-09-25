@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace LiteWallet\Domain;
 
 use InvalidArgumentException;
+use LiteWallet\InsufficientBalance;
 use LiteWallet\LnbitsClient;
 use LiteWallet\Support\Config;
 use LiteWallet\Support\Session;
@@ -64,6 +65,50 @@ final class WalletService
         $known = $this->session->get('known_payments') ?: []; $known[$id] = time();
         $this->session->set('known_payments', array_slice($known, -100, null, true));
         return ['id' => $id, 'message' => 'Platba byla odeslána. Ověřuji stav.'];
+    }
+    public function lightningAddressPreview(array $data): array
+    {
+        $address = Email::normalize((string) ($data['address'] ?? ''));
+        $max = (int) $this->config->get('max_send_sats', 10000);
+        $sats = filter_var($data['amount'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => $max]]);
+        if (!is_int($sats)) { throw new InvalidArgumentException('Zadejte celou částku od 1 do ' . $max . ' sat.'); }
+        $msat = $sats * 1000;
+        $scan = $this->client->scanLightningAddress($address);
+        $min = filter_var($scan['minSendable'] ?? null, FILTER_VALIDATE_INT);
+        $maxRemote = filter_var($scan['maxSendable'] ?? null, FILTER_VALIDATE_INT);
+        if (($scan['kind'] ?? null) !== 'pay' || !is_int($min) || !is_int($maxRemote) || $min < 1 || $maxRemote < $min) {
+            throw new InvalidArgumentException('Tato Lightning adresa nepodporuje platbu.');
+        }
+        if ($msat < $min || $msat > $maxRemote) {
+            throw new InvalidArgumentException('Tato Lightning adresa přijímá částky od ' . (intdiv($min, 1000) + ($min % 1000 > 0 ? 1 : 0))
+                . ' do ' . intdiv($maxRemote, 1000) . ' sat.');
+        }
+        $balance = PaymentHistory::msat($this->client->wallet()['balance'] ?? null);
+        if ($balance < $msat) { throw new InvalidArgumentException('Nedostatek prostředků na tuto platbu.'); }
+        $token = bin2hex(random_bytes(16));
+        $this->session->set('ln_address_intent', ['token' => $token, 'address' => $address, 'msat' => $msat, 'at' => time()]);
+        return ['token' => $token, 'address' => $address, 'amount_msat' => $msat,
+            'description' => substr((string) ($scan['description'] ?? ''), 0, 140)];
+    }
+    public function lightningAddressSend(array $data): array
+    {
+        $intent = $this->session->get('ln_address_intent');
+        if (!is_array($intent) || !hash_equals((string) ($intent['token'] ?? ''), (string) ($data['token'] ?? ''))
+            || time() - (int) ($intent['at'] ?? 0) > 120) {
+            throw new InvalidArgumentException('Potvrzení vypršelo. Zkontrolujte platbu znovu.');
+        }
+        $this->session->remove('ln_address_intent');
+        $msat = (int) $intent['msat'];
+        if (PaymentHistory::msat($this->client->wallet()['balance'] ?? null) < $msat) {
+            throw new InvalidArgumentException('Nedostatek prostředků na tuto platbu.');
+        }
+        try { $result = $this->client->payLightningAddress((string) $intent['address'], $msat); }
+        catch (InsufficientBalance $e) { throw new InvalidArgumentException($e->getMessage(), 0, $e); }
+        $id = $result['checking_id'] ?? $result['payment_hash'] ?? null;
+        if (!is_string($id) || $id === '') { throw new RuntimeException('LNbits nevrátil ID platby. Zkontrolujte historii, než budete platit znovu.'); }
+        $known = $this->session->get('known_payments') ?: []; $known[$id] = time();
+        $this->session->set('known_payments', array_slice($known, -100, null, true));
+        return ['id' => $id, 'message' => 'Platba na Lightning adresu byla zadána. Ověřte její stav v historii.'];
     }
     public function status(string $id): array
     {

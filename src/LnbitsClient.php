@@ -49,6 +49,14 @@ final class LnbitsClient
     {
         return $this->request('POST', '/api/v1/payments/decode', ['data' => $invoice], false);
     }
+    public function scanLightningAddress(string $address): array
+    {
+        return $this->request('GET', '/api/v1/lnurlscan/' . rawurlencode($address), null, false);
+    }
+    public function payLightningAddress(string $address, int $amountMsat): array
+    {
+        return $this->request('POST', '/api/v1/payments/lnurl', ['lnurl' => $address, 'amount' => $amountMsat], true);
+    }
     public function pay(string $invoice): array
     {
         return $this->request('POST', '/api/v1/payments', ['out' => true, 'bolt11' => $invoice], true);

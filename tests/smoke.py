@@ -230,6 +230,23 @@ def main():
             assert external['amount_msat'] == 2000
             paid = alice('send', {'token': external['token']})
             assert paid['id'] == 'payment12345678'
+            try:
+                alice('address_preview', {'address': 'outside@example.net', 'amount': 1})
+                raise AssertionError('Amount below Lightning address minimum was accepted')
+            except urllib.error.HTTPError as err:
+                assert err.code == 400 and '10' in json.load(err)['error']
+            address = alice('address_preview', {'address': 'outside@example.net', 'amount': 100})
+            assert address['address'] == 'outside@example.net' and address['amount_msat'] == 100000
+            outgoing = alice('address_send', {'token': address['token']})
+            assert outgoing['id'] == 'lnurlpayment123456'
+            assert (root / 'sends.log').read_text().count('lnurl') == 1
+            try:
+                alice('address_send', {'token': address['token']})
+                raise AssertionError('Repeated Lightning address confirmation paid twice')
+            except urllib.error.HTTPError as err:
+                assert err.code == 400
+            with sqlite3.connect(root / 'wallet.sqlite') as db:
+                assert db.execute('SELECT count(*) FROM users WHERE email=?', ('outside@example.net',)).fetchone()[0] == 0
             print('OK: existing wallet migration, email codes, isolation, automatic wallet, email payment once, status, invoice and BOLT11')
         finally:
             frontend.terminate(); backend.terminate()
