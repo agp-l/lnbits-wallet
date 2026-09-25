@@ -204,42 +204,75 @@
     finally { button.disabled = false; }
   });
   $('#copyInvoice').addEventListener('click', () => { if (activeInvoice) copy(activeInvoice.invoice); });
+  let sendMode = 'email';
+  const isInvoice = (value) => /^ln(?:bc|tb|bcrt)/i.test(value.trim());
+  function syncSendFields() {
+    const email = sendMode === 'email';
+    const invoice = !email && isInvoice($('#externalRecipient').value);
+    $('#emailRecipientField').hidden = !email;
+    $('#externalRecipientField').hidden = email;
+    $('#emailRecipient').disabled = !email;
+    $('#externalRecipient').disabled = email;
+    $('#sendAmountField').hidden = invoice;
+    $('#sendAmount').disabled = invoice;
+    $('#sendDescription').textContent = email
+      ? 'Příjemci založíme peněženku, pokud ji ještě nemá. Přístup získá kódem na svůj e-mail.'
+      : 'Zadejte Lightning adresu jiné peněženky nebo vložte fakturu. Příjemci se nezakládá účet Lite Wallet ani neposílá e-mail.';
+    $('#externalHint').textContent = invoice
+      ? 'Částka je už uvedena ve faktuře a zobrazí se před potvrzením.'
+      : 'Lightning adresa vypadá jako e-mail, ale platba nejde do e-mailové schránky. Vložte také fakturu začínající lnbc…';
+    $$('[data-send-mode]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.sendMode === sendMode)));
+  }
+  $$('[data-send-mode]').forEach((button) => button.addEventListener('click', () => {
+    sendMode = button.dataset.sendMode;
+    syncSendFields();
+  }));
+  $('#externalRecipient').addEventListener('input', syncSendFields);
   $('#sendForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     const button = event.target.querySelector('[type="submit"]'); button.disabled = true;
     try {
-      const preview = await api('preview', { invoice: $('#recipient').value });
-      showModal('Potvrdit platbu', 'Zkontrolujte částku i popis. Platba může zahrnovat poplatek za směrování.', [
-        ['Částka', `${formatSat(preview.amount_msat)} sat`], ['Popis', preview.description || 'Bez popisu']
-      ], async () => {
-        const sent = await api('send', { token: preview.token });
-        $('#recipient').value = '';
-        refresh();
-        return { title: 'Platba odeslána', description: 'Požadavek byl přijat. Ověřte výsledek v historii.', details: [['ID platby', sent.id]] };
-      });
-    } catch (error) { toast(error.message); }
-    finally { button.disabled = false; }
-  });
-
-  $('#emailSendForm').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const button = event.target.querySelector('[type="submit"]'); button.disabled = true;
-    try {
-      const amount = Number($('#emailAmount').value);
-      if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Zadejte platnou částku v sat.');
-      const preview = await api('email_preview', { email: $('#emailRecipient').value.trim(), amount });
-      // The preview ID is also the status ID. Keep it if the send response is lost.
-      $('#transferId').value = preview.token;
-      try { sessionStorage.setItem('lastEmailTransferId', preview.token); } catch (_) { /* Storage is optional. */ }
-      showModal('Potvrdit převod', 'Ověřte příjemce. Převod přes Lightning může mít poplatek.', [
-        ['E-mail příjemce', preview.email], ['Částka', `${formatSat(preview.amount_msat)} sat`], ['ID pro ověření', preview.token]
-      ], async () => {
-        const sent = await api('email_send', { token: preview.token });
-        $('#transferId').value = sent.id;
-        $('#emailAmount').value = '';
-        refresh();
-        return { title: 'Převod zadán', description: sent.message, details: [['ID převodu', sent.id]] };
-      });
+      const external = sendMode === 'external';
+      const recipient = external ? $('#externalRecipient').value.trim() : $('#emailRecipient').value.trim();
+      const invoice = external && isInvoice(recipient);
+      const amount = Number($('#sendAmount').value);
+      if (!invoice && (!Number.isSafeInteger(amount) || amount <= 0)) throw new Error('Zadejte platnou částku v sat.');
+      if (!external) {
+        const preview = await api('email_preview', { email: recipient, amount });
+        // The preview ID is also the status ID. Keep it if the send response is lost.
+        $('#transferId').value = preview.token;
+        try { sessionStorage.setItem('lastEmailTransferId', preview.token); } catch (_) { /* Storage is optional. */ }
+        showModal('Potvrdit převod', 'Posíláte člověku e-mailem přes Lite Wallet. Pokud účet ještě nemá, založíme mu jej. Převod může mít poplatek.', [
+          ['E-mail příjemce', preview.email], ['Částka', `${formatSat(preview.amount_msat)} sat`], ['ID pro ověření', preview.token]
+        ], async () => {
+          const sent = await api('email_send', { token: preview.token });
+          $('#transferId').value = sent.id;
+          $('#emailRecipient').value = ''; $('#sendAmount').value = '';
+          refresh();
+          return { title: 'Převod zadán', description: sent.message, details: [['ID převodu', sent.id]] };
+        });
+      } else if (invoice) {
+        const preview = await api('preview', { invoice: recipient });
+        showModal('Potvrdit platbu', 'Platíte fakturu do jiné Lightning peněženky. Platba může zahrnovat poplatek za směrování.', [
+          ['Částka', `${formatSat(preview.amount_msat)} sat`], ['Popis', preview.description || 'Bez popisu']
+        ], async () => {
+          const sent = await api('send', { token: preview.token });
+          $('#externalRecipient').value = ''; syncSendFields();
+          refresh();
+          return { title: 'Platba odeslána', description: 'Požadavek byl přijat. Ověřte výsledek v historii.', details: [['ID platby', sent.id]] };
+        });
+      } else {
+        const preview = await api('address_preview', { address: recipient, amount });
+        showModal('Potvrdit platbu', 'Platíte do jiné Lightning peněženky. Na tento e-mail neposíláme zprávu ani nezakládáme účet Lite Wallet. Platba může mít poplatek.', [
+          ['Lightning adresa', preview.address], ['Částka', `${formatSat(preview.amount_msat)} sat`],
+          ['Popis', preview.description || 'Bez popisu']
+        ], async () => {
+          const sent = await api('address_send', { token: preview.token });
+          $('#externalRecipient').value = ''; $('#sendAmount').value = '';
+          refresh();
+          return { title: 'Platba zadána', description: sent.message, details: [['ID platby', sent.id]] };
+        });
+      }
     } catch (error) { toast(error.message); }
     finally { button.disabled = false; }
   });
@@ -252,26 +285,6 @@
       showModal('Stav převodu', message, [['ID převodu', id]]);
       if (state.state === 'paid') refresh();
     } catch (error) { toast(error.message); }
-  });
-
-  $('#addressSendForm').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const button = event.target.querySelector('[type="submit"]'); button.disabled = true;
-    try {
-      const amount = Number($('#addressAmount').value);
-      if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Zadejte platnou částku v sat.');
-      const preview = await api('address_preview', { address: $('#lightningAddress').value.trim(), amount });
-      showModal('Potvrdit platbu', 'Zkontrolujte Lightning adresu a částku. Platba může mít směrovací poplatek.', [
-        ['Lightning adresa', preview.address], ['Částka', `${formatSat(preview.amount_msat)} sat`],
-        ['Popis', preview.description || 'Bez popisu']
-      ], async () => {
-        const sent = await api('address_send', { token: preview.token });
-        $('#addressAmount').value = '';
-        refresh();
-        return { title: 'Platba zadána', description: sent.message, details: [['ID platby', sent.id]] };
-      });
-    } catch (error) { toast(error.message); }
-    finally { button.disabled = false; }
   });
 
   $$('[data-go]').forEach((button) => button.addEventListener('click', () => goTo(button.dataset.go)));

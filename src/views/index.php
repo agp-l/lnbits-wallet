@@ -97,35 +97,26 @@ $maxSendSats = (int) ($state['maxSendSats'] ?? 10000);
         </div>
       </section>
       <section class="view" data-view="send" aria-label="Odeslat Lightning" hidden>
-        <div class="page-head"><p class="eyebrow">Odchozí platba</p><h1>Odeslat bitcoin</h1><p class="lead">Pošlete satoshi na e-mail v Lite Wallet, Lightning adresu nebo zaplaťte fakturu.</p></div>
-        <form id="emailSendForm" class="card" autocomplete="off">
-          <h2 class="card-title"><svg class="icon" aria-hidden="true"><use href="#i-up"/></svg>Poslat uživateli Lite Wallet</h2>
-          <p class="card-desc">Příjemci se založí vlastní Lightning peněženka, pokud ji ještě nemá. Přístup získá kódem doručeným na tuto adresu.</p>
-          <div class="field"><label for="emailRecipient">E-mail příjemce</label><input id="emailRecipient" type="email" autocomplete="off" required></div>
-          <div class="field"><label for="emailAmount">Částka v sat</label><div class="form-suffix"><input id="emailAmount" type="number" min="1" max="<?= $maxSendSats ?>" step="1" inputmode="numeric" required><span>sat</span></div><small>1 až <?= number_format($maxSendSats, 0, ',', ' ') ?> sat. Příjemce musí mít jiný e-mail než vy.</small></div>
-          <button type="submit" class="action action-primary full-button">Zkontrolovat převod</button>
-          <p class="small-note">Převod probíhá přes Lightning a může mít poplatek. E-mail není BTC adresa na blockchainu.</p>
-        </form>
-        <form id="emailStatusForm" class="card transfer-status" autocomplete="off">
-          <h2 class="card-title">Ověřit převod podle ID</h2>
-          <div class="field"><label for="transferId">ID převodu při nejasném výsledku</label><input id="transferId" type="text" pattern="[0-9a-f]{32}" minlength="32" maxlength="32" spellcheck="false" autocomplete="off" required></div>
-          <button type="submit" class="action action-secondary full-button">Ověřit stav</button>
-        </form>
-        <div class="send-divider">nebo Lightning adresa</div>
-        <form id="addressSendForm" class="card" autocomplete="off">
-          <h2 class="card-title">Poslat na Lightning adresu</h2>
-          <p class="card-desc">Adresa jiné Lightning služby vypadá jako e-mail, například jmeno@domena.cz. Neposílá se na e-mailovou schránku.</p>
-          <div class="field"><label for="lightningAddress">Lightning adresa</label><input id="lightningAddress" type="email" autocomplete="off" placeholder="jmeno@domena.cz" required></div>
-          <div class="field"><label for="addressAmount">Částka v sat</label><div class="form-suffix"><input id="addressAmount" type="number" min="1" max="<?= $maxSendSats ?>" step="1" inputmode="numeric" required><span>sat</span></div></div>
-          <button type="submit" class="action action-primary full-button">Zkontrolovat adresu a částku</button>
-        </form>
-        <div class="send-divider">nebo faktura BOLT11</div>
+        <div class="page-head"><p class="eyebrow">Odchozí platba</p><h1>Odeslat bitcoin</h1><p class="lead">Stačí znát e-mail příjemce. Zaplatit můžete i do jiné Lightning peněženky.</p></div>
         <form id="sendForm" class="card" autocomplete="off">
-          <h2 class="card-title"><svg class="icon" aria-hidden="true"><use href="#i-up"/></svg>Zaplatit fakturu</h2>
-          <div class="field"><label for="recipient">Faktura BOLT11</label><textarea id="recipient" rows="5" placeholder="lnbc…" spellcheck="false" autocapitalize="off" maxlength="5000" required></textarea><small>Podporovány jsou faktury s pevnou částkou. BTC adresu sem nevkládejte.</small></div>
+          <h2 class="card-title"><svg class="icon" aria-hidden="true"><use href="#i-up"/></svg>Komu posíláte?</h2>
+          <div class="send-modes" role="group" aria-label="Způsob odeslání">
+            <button type="button" class="send-mode" data-send-mode="email" aria-controls="emailRecipientField" aria-pressed="true">Poslat člověku e-mailem</button>
+            <button type="button" class="send-mode" data-send-mode="external" aria-controls="externalRecipientField" aria-pressed="false">Zaplatit do jiné peněženky</button>
+          </div>
+          <p class="card-desc send-description" id="sendDescription">Příjemci založíme peněženku, pokud ji ještě nemá. Přístup získá kódem na svůj e-mail.</p>
+          <div class="field" id="emailRecipientField"><label for="emailRecipient">E-mail příjemce</label><input id="emailRecipient" type="email" autocomplete="off" placeholder="jmeno@domena.cz" required></div>
+          <div class="field" id="externalRecipientField" hidden><label for="externalRecipient">Lightning adresa nebo faktura</label><textarea id="externalRecipient" rows="3" placeholder="jmeno@domena.cz nebo lnbc…" spellcheck="false" autocapitalize="off" maxlength="5000" required disabled></textarea><small id="externalHint">Lightning adresa vypadá jako e-mail, ale platba nejde do e-mailové schránky. Vložte také fakturu začínající lnbc…</small></div>
+          <div class="field" id="sendAmountField"><label for="sendAmount">Částka v sat</label><div class="form-suffix"><input id="sendAmount" type="number" min="1" max="<?= $maxSendSats ?>" step="1" inputmode="numeric" required><span>sat</span></div><small>1 až <?= number_format($maxSendSats, 0, ',', ' ') ?> sat.</small></div>
           <button type="submit" class="action action-primary full-button">Zkontrolovat platbu</button>
+          <p class="small-note" id="sendNote">Převod probíhá přes Lightning a může mít poplatek. Odeslání potvrdíte v dalším kroku.</p>
         </form>
-        <p class="small-note">Odeslání proběhne až po potvrzení částky v dalším kroku.</p>
+        <details class="card transfer-status"><summary>Ověřit stav převodu podle ID</summary>
+          <form id="emailStatusForm" autocomplete="off">
+            <div class="field"><label for="transferId">ID převodu při nejasném výsledku</label><input id="transferId" type="text" pattern="[0-9a-f]{32}" minlength="32" maxlength="32" spellcheck="false" autocomplete="off" required></div>
+            <button type="submit" class="action action-secondary full-button">Ověřit stav</button>
+          </form>
+        </details>
       </section>
       <section class="view" data-view="settings" aria-label="Nastavení" hidden>
         <div class="page-head"><p class="eyebrow">Aplikace</p><h1>Nastavení</h1><p class="lead">Účet: <?= html($user['email']) ?></p></div>
