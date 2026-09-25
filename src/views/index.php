@@ -74,7 +74,7 @@ $maxSendSats = (int) ($state['maxSendSats'] ?? 10000);
     </header>
     <main class="screen" id="screen" tabindex="-1">
       <section class="view" data-view="home" aria-label="Přehled">
-        <p class="eyebrow">Moje peněženka</p><h1>Bitcoin na jednom místě.</h1><p class="lead">Zůstatek a platby přes Lightning Network.</p>
+        <p class="eyebrow">Bitcoin peněženka</p><h1>Lite Wallet</h1><p class="lead">Zůstatek a platby přes Lightning Network.</p>
         <section class="balance-card" aria-label="Zůstatek">
           <div class="balance-top"><span class="balance-label">Aktuální zůstatek</span><span class="network-pill">LIGHTNING</span></div>
           <div class="balance-number"><span id="balance" data-private>—</span> <small>sat</small></div>
