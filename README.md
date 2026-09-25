@@ -4,7 +4,7 @@ Víceuživatelská peněženka v PHP nad oddělenými peněženkami jednoho úč
 
 ## Požadavky
 
-- PHP **8.0+**, `curl`, `pdo_mysql`, `sodium`, `openssl`, sessions; HTTPS pro veřejnou doménu. Lokální XAMPP s PHP 8.0 lze použít na vyzkoušení; pro veřejnou peněženku použijte podporovanou verzi PHP. Původní konfigurace SQLite nadále funguje s `pdo_sqlite`.
+- PHP **8.0+**, `curl`, `pdo_mysql`, `openssl`, sessions; pro šifrování klíčů `sodium` **nebo** OpenSSL s AES-256-GCM. HTTPS pro veřejnou doménu. Lokální XAMPP s PHP 8.0 lze použít na vyzkoušení; pro veřejnou peněženku použijte podporovanou verzi PHP. Původní konfigurace SQLite nadále funguje s `pdo_sqlite`.
 - MySQL/MariaDB s tabulkami InnoDB. Tabulky uvidíte v phpMyAdmin; SQLite je alternativní databáze bez serveru a v phpMyAdmin se neotevře. Klíče a záznamy plateb ručně neupravujte.
 - Dostupný SMTP server s **STARTTLS** na portu 587 a platným certifikátem.
 - LNbits instance umožňující pod vaším účtem vytvořit další peněženku pomocí `POST /api/v1/wallet` s účetním Bearer/ACL tokenem. Verzi a skutečné oprávnění ověřte ve **vlastní instanci** přes `/docs`; obecná dokumentace LNbits se podle verze liší. Token jedné peněženky (`admin_key`) nezakládá další peněženky.
@@ -25,7 +25,7 @@ Při reverzní proxy musí webový PHP proces dostávat `$_SERVER['HTTPS']='on'`
 
 Při otevření z `localhost` přímo ze stejného počítače se zobrazí i fatální chyby PHP. Pokud prohlížeč stále hlásí HTTP 500 bez textu, aktualizujte soubory (`git pull origin main`), ověřte syntaxi ve webovém PHP příkazem `/opt/lampp/bin/php -l src/App.php` a přečtěte poslední řádky `/opt/lampp/logs/error_log`. CLI příkaz `php -v` může používat jinou verzi než XAMPP. Nepoužívejte veřejnou doménu k ladění výpisem chyb.
 
-Pokud stránka hlásí chybějící rozšíření `sodium`, spusťte `/opt/lampp/bin/php -r 'var_export(extension_loaded("sodium"));'` a zkontrolujte `find /opt/lampp -name sodium.so -print`. Soubor `sodium.so` lze načíst nastavením `extension=sodium` v `/opt/lampp/etc/php.ini` a restartem XAMPP; pokud v instalaci není, je nutné použít PHP sestavené s podporou sodium. Balíček pro systémové PHP sám o sobě neopraví PHP uvnitř XAMPP.
+XAMPP bez `sodium` funguje s OpenSSL a šifrou AES-256-GCM: ověřte `/opt/lampp/bin/php -r 'echo extension_loaded("openssl") && in_array("aes-256-gcm", openssl_get_cipher_methods(), true) ? "OpenSSL OK\n" : "OpenSSL chybí\n";'`. Nově uložené klíče mají formát `gcm1:`; lze je číst i po pozdější instalaci `sodium`. **Dříve uložené klíče šifrované přes sodium bez něj přečíst nelze**; pro existující databázi jej zachovejte. `app_key` zachovejte při aktualizaci programu beze změny.
 
 **Už používáte SQLite?** Původní `config.php` s `database_path` dál funguje. Přepnutí na `database` typu MySQL nepřenese účty ani vazby peněženek; stávající data nechte v SQLite, dokud neproběhne řízená migrace. SQLite soubor a jeho `-wal`/`-shm` vyžadují zapisovatelnou složku mimo `public/` a společnou zálohu s `app_key`.
 
@@ -52,6 +52,6 @@ Pokud stránka hlásí chybějící rozšíření `sodium`, spusťte `/opt/lampp
 | `bin/generate_app_key.php` | Vygenerování klíče pro `config.php` |
 | `tests/` | Mock LNbits a test e-mailových kódů a plateb |
 
-Lokální test: `python3 tests/smoke.py` (vyžaduje PHP s `pdo_sqlite`, `openssl` v PATH). Test používá dočasné SQLite a falešné servery LNbits a STARTTLS SMTP; MySQL ověřte samostatně před nasazením na živém serveru. Server žádnou živou platbu při testu neprovádí.
+Lokální test: `python3 tests/smoke.py` (vyžaduje PHP s `pdo_sqlite`, `openssl` v PATH); oba formáty šifrování ověří `python3 tests/vault.py`. Test používá dočasné SQLite a falešné servery LNbits a STARTTLS SMTP; MySQL ověřte samostatně před nasazením na živém serveru. Server žádnou živou platbu při testu neprovádí.
 
 QR kódy Lightning faktur se generují lokálně; knihovna [Project Nayuki](https://github.com/nayuki/QR-Code-generator) je použita s MIT licencí. Service worker ukládá jen statické soubory. PHP nasazení nepotřebuje Node.js.
