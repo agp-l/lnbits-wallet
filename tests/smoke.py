@@ -191,6 +191,21 @@ def main():
                 raise AssertionError('Recipient accessed sender transfer')
             except urllib.error.HTTPError as err:
                 assert err.code == 404
+            wallet_count = len(json.loads((root / 'state.json').read_text())['wallets'])
+            try:
+                alice('email_preview', {'email': 'new@example.com', 'amount': 5000})
+                raise AssertionError('Transfer with insufficient balance was previewed')
+            except urllib.error.HTTPError as err:
+                assert err.code == 400 and 'Nedostatek prostředků' in json.load(err)['error']
+            assert len(json.loads((root / 'state.json').read_text())['wallets']) == wallet_count
+            fee_short = alice('email_preview', {'email': 'bob@example.com', 'amount': 4240})
+            try:
+                alice('email_send', {'token': fee_short['token']})
+                raise AssertionError('Node rejection was reported as a successful payment')
+            except urllib.error.HTTPError as err:
+                assert err.code == 400 and 'Nedostatek prostředků' in json.load(err)['error']
+            assert alice('email_status', extra='&id=' + fee_short['token'])['state'] == 'failed'
+            assert alice('summary')['balance_msat'] == 4240000
             assert alice('summary')['payments'][0]['time'] == 1740000000
             assert 'admin-key-test' not in json.dumps(summary)
             invoice = bob('receive', {'amount': 10, 'memo': 'Test'})

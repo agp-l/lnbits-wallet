@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace LiteWallet\Domain;
 
 use InvalidArgumentException;
+use LiteWallet\InsufficientBalance;
 use LiteWallet\Infrastructure\Mailer;
 use LiteWallet\Infrastructure\TransferRepository;
 use LiteWallet\Infrastructure\UserRepository;
@@ -23,6 +24,7 @@ final class EmailTransferService
         $sats = filter_var($body['amount'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => $max]]);
         if (!is_int($sats)) { throw new InvalidArgumentException('Zadejte celou částku od 1 do ' . $max . ' sat.'); }
         if ($email === $sender['email']) { throw new InvalidArgumentException('Nelze poslat prostředky na vlastní e-mail. Zadejte e-mail jiného příjemce.'); }
+        $this->ensureBalance($this->client($sender), $sats);
         $id = bin2hex(random_bytes(16));
         $this->session->set('email_intent', ['id' => $id, 'email' => $email, 'sats' => $sats, 'at' => time(), 'sender' => $sender['id']]);
         return ['token' => $id, 'amount_msat' => $sats * 1000, 'email' => $email];
@@ -36,11 +38,12 @@ final class EmailTransferService
             throw new InvalidArgumentException('Potvrzení vypršelo. Zkontrolujte platbu znovu.');
         }
         $this->session->remove('email_intent');
+        $senderClient = $this->client($sender);
+        $this->ensureBalance($senderClient, (int) $intent['sats']);
         $recipient = $this->users->pending($intent['email']);
         $new = $recipient['verified_at'] === null;
         $recipient = $this->provisioner->ensure($recipient);
         $recipientClient = $this->client($recipient);
-        $senderClient = $this->client($sender);
         $invoice = $recipientClient->createInvoice((int) $intent['sats'], 'Platba na e-mail');
         $request = $invoice['payment_request'] ?? null;
         $invoiceId = $invoice['checking_id'] ?? $invoice['payment_hash'] ?? null;
@@ -54,6 +57,9 @@ final class EmailTransferService
             $payment = $senderClient->pay($request);
             $paymentId = $payment['checking_id'] ?? $payment['payment_hash'] ?? $invoiceId;
             $this->transfers->submitted($intent['id'], (string) $paymentId);
+        } catch (InsufficientBalance $e) {
+            $this->transfers->updateStatus($intent['id'], 'failed');
+            throw new InvalidArgumentException($e->getMessage(), 0, $e);
         } catch (\Throwable $e) {
             // Do not retry: LNbits might have paid before the connection broke.
             throw new RuntimeException('Stav převodu může být nejistý. Zkontrolujte jej v historii; číslo převodu: ' . $intent['id'], 0, $e);
@@ -70,6 +76,7 @@ final class EmailTransferService
     public function status(array $sender, string $id): array
     {
         $row = $this->transfers->bySender($id, $sender['id']);
+        if ($row['state'] === 'failed') { return ['state' => 'failed', 'id' => $id]; }
         $recipient = $this->users->byEmail($this->users->emailForId($row['recipient_id']));
         $state = $this->client($recipient)->status($row['invoice_id']);
         $status = strtolower((string) ($state['details']['status'] ?? ''));
@@ -82,5 +89,15 @@ final class EmailTransferService
     {
         $keys = $this->users->keys($user);
         return new LnbitsClient((string) $this->config->get('lnbits_url'), $keys['invoice_key'], $keys['admin_key']);
+    }
+
+    private function ensureBalance(LnbitsClient $client, int $sats): void
+    {
+        $wallet = $client->wallet();
+        $balance = PaymentHistory::msat($wallet['balance'] ?? null);
+        if ($balance < $sats * 1000) {
+            throw new InvalidArgumentException('Nedostatek prostředků. K dispozici: '
+                . intdiv(max(0, $balance), 1000) . ' sat; požadavek: ' . $sats . ' sat.');
+        }
     }
 }

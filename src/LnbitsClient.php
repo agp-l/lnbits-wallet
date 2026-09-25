@@ -93,6 +93,10 @@ final class LnbitsClient
         $result = json_decode($response, true);
         if ($status < 200 || $status >= 300) {
             $detail = is_array($result) && is_string($result['detail'] ?? null) ? $result['detail'] : 'HTTP ' . $status;
+            if ($spending && in_array($status, [400, 402, 422], true)
+                && preg_match('/\b(?:insufficient (?:balance|funds)|not enough (?:balance|funds)|(?:balance|funds) (?:is )?too low)\b/i', $detail)) {
+                throw new InsufficientBalance('Nedostatek prostředků na platbu včetně případného poplatku.');
+            }
             throw new RuntimeException('LNbits: ' . substr($detail, 0, 180));
         }
         if (!is_array($result)) { throw new RuntimeException('LNbits vrátil neplatnou odpověď.'); }

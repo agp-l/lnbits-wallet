@@ -57,9 +57,14 @@ if ($method === 'POST' && $path === '/api/v1/payments' && ($body['out'] ?? false
         if ($state['invoices'][$id]['paid']) { reply_json(['detail' => 'Already paid'], 400); }
         $recipient = $state['invoices'][$id]['wallet'];
         $msat = $state['invoices'][$id]['sats'] * 1000;
+    } else { $msat = 2000; $id = 'payment12345678'; }
+    if ($state['wallets'][$walletId]['balance'] < $msat + 1000) {
+        reply_json(['detail' => 'Insufficient balance'], 400);
+    }
+    if (isset($recipient)) {
         $state['invoices'][$id]['paid'] = true;
         $state['wallets'][$recipient]['balance'] += $msat;
-    } else { $msat = 2000; $id = 'payment12345678'; }
+    }
     $state['wallets'][$walletId]['balance'] -= $msat;
     $state['payments'][$walletId][] = ['checking_id' => $id, 'amount' => -$msat, 'time' => '2025-02-19T21:20:00Z', 'status' => 'success'];
     if (isset($recipient)) { $state['payments'][$recipient][] = ['checking_id' => $id, 'amount' => $msat, 'time' => 1740000000, 'status' => 'success']; }
