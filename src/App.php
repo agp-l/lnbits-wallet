@@ -17,12 +17,12 @@ use LiteWallet\Support\Session;
 
 final class App
 {
-    public readonly Config $config;
-    public readonly Database $database;
-    public readonly UserRepository $users;
-    public readonly Session $session;
-    public readonly AuthService $auth;
-    public readonly EmailTransferService $transfers;
+    public Config $config;
+    public Database $database;
+    public UserRepository $users;
+    public Session $session;
+    public AuthService $auth;
+    public EmailTransferService $transfers;
 
     public function __construct(string $configPath, ?Mailer $mailer = null)
     {

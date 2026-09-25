@@ -9,7 +9,7 @@ use RuntimeException;
 final class ApiController
 {
     public function __construct(private App $app) {}
-    public function handle(): never
+    public function handle(): void
     {
         try {
             $this->app->session->start();
@@ -43,7 +43,7 @@ final class ApiController
             $this->reply(['error' => $e instanceof RuntimeException ? $e->getMessage() : 'Nastala chyba serveru.'], 502);
         }
     }
-    private function reply(array $data, int $status = 200): never
+    private function reply(array $data, int $status = 200): void
     {
         http_response_code($status);
         echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);

@@ -15,7 +15,7 @@ if (!is_array($state)) {
     ], 'invoices' => [], 'payments' => []];
 }
 function save_state(): void { global $handle, $state; ftruncate($handle, 0); rewind($handle); fwrite($handle, json_encode($state)); fflush($handle); }
-function reply_json(array $value, int $code=200): never { global $handle; save_state(); flock($handle, LOCK_UN); fclose($handle); http_response_code($code); echo json_encode($value); exit; }
+function reply_json(array $value, int $code=200): void { global $handle; save_state(); flock($handle, LOCK_UN); fclose($handle); http_response_code($code); echo json_encode($value); exit; }
 $body = json_decode(file_get_contents('php://input'), true) ?: [];
 if ($method === 'POST' && $path === '/api/v1/wallet') {
     if ($bearer !== 'Bearer test-account-token-123456') { reply_json(['detail' => 'Forbidden'], 403); }

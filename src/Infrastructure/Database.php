@@ -8,7 +8,7 @@ use RuntimeException;
 
 final class Database
 {
-    public readonly PDO $pdo;
+    public PDO $pdo;
     private bool $mysql;
 
     /** @param array<string, mixed>|string $settings A MySQL configuration or a legacy SQLite path. */
