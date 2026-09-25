@@ -6,6 +6,7 @@ $error = $state['error'];
 $notice = $state['notice'];
 $csrf = $state['csrf'];
 $pendingEmail = $state['pendingEmail'];
+$maxSendSats = (int) ($state['maxSendSats'] ?? 10000);
 ?>
 <!doctype html>
 <html lang="cs">
@@ -101,7 +102,7 @@ $pendingEmail = $state['pendingEmail'];
           <h2 class="card-title"><svg class="icon" aria-hidden="true"><use href="#i-up"/></svg>Poslat na e-mail</h2>
           <p class="card-desc">Příjemci se založí vlastní Lightning peněženka, pokud ji ještě nemá. Přístup získá kódem doručeným na tuto adresu.</p>
           <div class="field"><label for="emailRecipient">E-mail příjemce</label><input id="emailRecipient" type="email" autocomplete="off" required></div>
-          <div class="field"><label for="emailAmount">Částka v sat</label><div class="form-suffix"><input id="emailAmount" type="number" min="1" step="1" inputmode="numeric" required><span>sat</span></div></div>
+          <div class="field"><label for="emailAmount">Částka v sat</label><div class="form-suffix"><input id="emailAmount" type="number" min="1" max="<?= $maxSendSats ?>" step="1" inputmode="numeric" required><span>sat</span></div><small>1 až <?= number_format($maxSendSats, 0, ',', ' ') ?> sat. Příjemce musí mít jiný e-mail než vy.</small></div>
           <button type="submit" class="action action-primary full-button">Zkontrolovat převod</button>
           <p class="small-note">Převod probíhá přes Lightning a může mít poplatek. E-mail není BTC adresa na blockchainu.</p>
         </form>

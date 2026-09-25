@@ -42,6 +42,7 @@ final class IndexController
             }
         }
         return ['user' => $this->app->user(), 'error' => $error, 'notice' => $notice,
+            'maxSendSats' => (int) $this->app->config->get('max_send_sats', 10000),
             'pendingEmail' => (string) ($this->app->session->get('pending_email') ?? ''), 'csrf' => $this->app->session->csrf()];
     }
 }

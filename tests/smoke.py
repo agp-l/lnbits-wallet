@@ -163,6 +163,12 @@ def main():
 
             alice = login('alice@example.com')
             assert alice('summary')['balance_msat'] == 4242000
+            assert alice('email_preview', {'email': 'bob@example.com', 'amount': 100})['amount_msat'] == 100000
+            try:
+                alice('email_preview', {'email': 'alice@example.com', 'amount': 100})
+                raise AssertionError('Self transfer was accepted')
+            except urllib.error.HTTPError as err:
+                assert err.code == 400 and 'vlastní e-mail' in json.load(err)['error']
             preview = alice('email_preview', {'email': 'bob@example.com', 'amount': 2})
             assert preview['amount_msat'] == 2000
             assert len(json.loads((root / 'state.json').read_text())['wallets']) == 1

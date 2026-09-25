@@ -19,8 +19,10 @@ final class EmailTransferService
     public function preview(array $sender, array $body): array
     {
         $email = Email::normalize((string) ($body['email'] ?? ''));
-        $sats = filter_var($body['amount'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => (int) $this->config->get('max_send_sats', 10000)]]);
-        if (!is_int($sats) || $email === $sender['email']) { throw new InvalidArgumentException('Zadejte jiný e-mail a povolenou částku v sat.'); }
+        $max = (int) $this->config->get('max_send_sats', 10000);
+        $sats = filter_var($body['amount'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => $max]]);
+        if (!is_int($sats)) { throw new InvalidArgumentException('Zadejte celou částku od 1 do ' . $max . ' sat.'); }
+        if ($email === $sender['email']) { throw new InvalidArgumentException('Nelze poslat prostředky na vlastní e-mail. Zadejte e-mail jiného příjemce.'); }
         $id = bin2hex(random_bytes(16));
         $this->session->set('email_intent', ['id' => $id, 'email' => $email, 'sats' => $sats, 'at' => time(), 'sender' => $sender['id']]);
         return ['token' => $id, 'amount_msat' => $sats * 1000, 'email' => $email];
