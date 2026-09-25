@@ -9,7 +9,8 @@ final class Vault
     private string $key;
     public function __construct(string $hex)
     {
-        if (!extension_loaded('sodium') || !preg_match('/^[a-f0-9]{64}$/iD', $hex)) { throw new RuntimeException('Šifrování klíčů není dostupné.'); }
+        if (!extension_loaded('sodium')) { throw new RuntimeException('V PHP webového serveru chybí rozšíření sodium.'); }
+        if (!preg_match('/^[a-f0-9]{64}$/iD', $hex)) { throw new RuntimeException('Neplatný app_key.'); }
         $this->key = hex2bin($hex);
     }
     public function seal(string $value): string
