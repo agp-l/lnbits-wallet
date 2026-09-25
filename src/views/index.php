@@ -115,7 +115,7 @@ $maxSendSats = (int) ($state['maxSendSats'] ?? 10000);
             <button type="button" class="send-mode" data-send-mode="email" aria-controls="emailRecipientField" aria-pressed="true">Poslat člověku e-mailem</button>
             <button type="button" class="send-mode" data-send-mode="external" aria-controls="externalRecipientField" aria-pressed="false">Zaplatit do jiné peněženky</button>
           </div>
-          <p class="card-desc send-description" id="sendDescription">Příjemci založíme peněženku, pokud ji ještě nemá. Přístup získá kódem na svůj e-mail.</p>
+          <p class="card-desc send-description" id="sendDescription">Příjemci založíme peněženku, pokud ji ještě nemá. V oznámení uvidí váš e-mail jako odesílatele a přihlásí se kódem.</p>
           <div class="field" id="emailRecipientField"><label for="emailRecipient">E-mail příjemce</label><input id="emailRecipient" type="email" autocomplete="off" placeholder="jmeno@domena.cz" required></div>
           <div class="field" id="externalRecipientField" hidden><label for="externalRecipient">Lightning adresa nebo faktura</label><textarea id="externalRecipient" rows="3" placeholder="jmeno@domena.cz nebo lnbc…" spellcheck="false" autocapitalize="off" maxlength="5000" required disabled></textarea><small id="externalHint">Lightning adresa vypadá jako e-mail, ale platba nejde do e-mailové schránky. Vložte také fakturu začínající lnbc…</small></div>
           <div class="field" id="sendAmountField"><label for="sendAmount">Částka v sat</label><div class="form-suffix"><input id="sendAmount" type="number" min="1" max="<?= $maxSendSats ?>" step="1" inputmode="numeric" required><span>sat</span></div><small>1 až <?= number_format($maxSendSats, 0, ',', ' ') ?> sat.</small></div>

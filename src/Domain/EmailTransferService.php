@@ -65,9 +65,9 @@ final class EmailTransferService
             throw new RuntimeException('Stav převodu může být nejistý. Neodesílejte jej znovu; aplikace stav ověří automaticky.', 0, $e);
         }
         if ($new) {
-            try { $this->mailer->send($intent['email'], 'Přijetí bitcoinů přes Lightning',
-                "Na váš e-mail mohl dorazit převod v Lite Wallet. Otevřete " . $this->config->url()
-                . " a přihlaste se jednorázovým kódem. Nikomu jej nesdělujte.\n"); }
+            $amount = number_format((int) $intent['sats'], 0, ',', ' ');
+            try { $this->mailer->send($intent['email'], 'Lite Wallet: převod ' . $amount . ' sat na váš e-mail',
+                $this->firstPaymentNotice($sender['email'], $intent['email'], $amount)); }
             catch (\Throwable $e) { error_log('Lite Wallet: e-mailové oznámení nelze doručit.'); }
         }
         return ['id' => $intent['id'], 'message' => 'Převod byl zadán. Ověřte jeho stav.'];
@@ -90,6 +90,25 @@ final class EmailTransferService
     {
         $row = $this->transfers->latestBySender($sender['id']);
         return $row ? $this->status($sender, $row['id']) : ['state' => 'none'];
+    }
+
+    private function firstPaymentNotice(string $senderEmail, string $recipientEmail, string $amount): string
+    {
+        $url = $this->config->url();
+        return <<<MAIL
+Dobrý den,
+
+uživatel {$senderEmail} zadal v Lite Wallet převod {$amount} sat (satoshi, část bitcoinu) přes Lightning na váš e-mail. Pro adresu {$recipientEmail} je připravená peněženka. Převod se může ještě ověřovat; jeho aktuální stav a zůstatek uvidíte po přihlášení.
+
+Jak se dostat k peněžence:
+1. Otevřete {$url}
+2. Zadejte stejný e-mail: {$recipientEmail}
+3. Zvolte „Poslat přihlašovací kód“. Kód přijde v samostatném e-mailu. Zadejte ho na webu a uvidíte svou peněženku.
+
+Nemusíte nic instalovat, nastavovat heslo ani nikomu posílat BTC, abyste si peněženku prohlédli. Pokud zprávu nečekáte, můžete ji ignorovat. Přihlašovací kód nikomu nesdělujte; správce peněženky ho po vás nikdy nebude chtít.
+
+Lite Wallet
+MAIL;
     }
 
     private function client(array $user): LnbitsClient

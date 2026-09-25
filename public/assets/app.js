@@ -234,7 +234,7 @@
     $('#sendAmountField').hidden = invoice;
     $('#sendAmount').disabled = invoice;
     $('#sendDescription').textContent = email
-      ? 'Příjemci založíme peněženku, pokud ji ještě nemá. Přístup získá kódem na svůj e-mail.'
+      ? 'Příjemci založíme peněženku, pokud ji ještě nemá. V oznámení uvidí váš e-mail jako odesílatele a přihlásí se kódem.'
       : 'Zadejte Lightning adresu jiné peněženky nebo vložte fakturu. Příjemci se nezakládá účet Lite Wallet ani neposílá e-mail.';
     $('#externalHint').textContent = invoice
       ? 'Částka je už uvedena ve faktuře a zobrazí se před potvrzením.'
@@ -258,7 +258,7 @@
       if (!external) {
         const preview = await api('email_preview', { email: recipient, amount });
         // The server records this transfer before asking LNbits to pay it.
-        showModal('Potvrdit převod', 'Posíláte člověku e-mailem přes Lite Wallet. Pokud účet ještě nemá, založíme mu jej. Převod může mít poplatek.', [
+        showModal('Potvrdit převod', 'Posíláte člověku e-mailem přes Lite Wallet. Pokud účet ještě nemá, založíme mu jej a v oznámení uvidí váš e-mail jako odesílatele. Převod může mít poplatek.', [
           ['E-mail příjemce', preview.email], ['Částka', `${formatSat(preview.amount_msat)} sat`]
         ], async () => {
           try {

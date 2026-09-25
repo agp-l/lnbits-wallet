@@ -1,4 +1,5 @@
 """Local full-flow test: isolated LNbits + STARTTLS SMTP + SQLite (PHP pdo_sqlite required)."""
+import base64
 import http.cookiejar
 import json
 import os
@@ -233,6 +234,13 @@ def main():
             sent = alice('email_send', {'token': preview['token']})
             assert re.fullmatch('[0-9a-f]{32}', sent['id'])
             assert len(messages) == before_notification + 1
+            notification = messages[-1]
+            encoded_subject = re.search(r'Subject: =\?UTF-8\?B\?([^?]+)\?=', notification).group(1)
+            assert base64.b64decode(encoded_subject).decode() == 'Lite Wallet: převod 2 sat na váš e-mail'
+            assert 'alice@example.com' in notification and 'bob@example.com' in notification
+            assert f'http://localhost:{frontend_port}/' in notification
+            assert 'Kód přijde v samostatném e-mailu' in notification
+            assert 'nikomu posílat BTC' in notification
             assert alice('email_status', extra='&id=' + sent['id'])['state'] == 'paid'
             assert alice('email_latest_status')['state'] == 'paid'
             assert alice('summary')['balance_msat'] == 4240000

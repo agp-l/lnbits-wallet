@@ -1,4 +1,4 @@
-const CACHE = 'lite-ln-assets-v3';
+const CACHE = 'lite-ln-assets-v4';
 const STATIC = ['assets/app.css', 'assets/app.js', 'assets/qrcodegen.js', 'icons/icon.svg', 'manifest.webmanifest'];
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(STATIC)));

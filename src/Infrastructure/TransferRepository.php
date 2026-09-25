@@ -10,13 +10,16 @@ final class TransferRepository
     public function __construct(private Database $db) {}
     public function start(string $id, string $sender, string $recipient, int $sats, string $invoiceId): void
     {
+        // Microseconds keep transfers created in the same second in their real order.
+        // Older second-based timestamps remain smaller than newly created entries.
+        $now = (int) (microtime(true) * 1000000);
         $q = $this->db->pdo->prepare("INSERT INTO transfers (id,sender_id,recipient_id,sats,state,invoice_id,created_at,updated_at) VALUES (?,?,?,?,'processing',?,?,?)");
-        $q->execute([$id, $sender, $recipient, $sats, $invoiceId, time(), time()]);
+        $q->execute([$id, $sender, $recipient, $sats, $invoiceId, $now, $now]);
     }
     public function submitted(string $id, string $paymentId): void
     {
         $q = $this->db->pdo->prepare("UPDATE transfers SET payment_id=?,state='submitted',updated_at=? WHERE id=? AND state='processing'");
-        $q->execute([$paymentId, time(), $id]);
+        $q->execute([$paymentId, (int) (microtime(true) * 1000000), $id]);
     }
     public function bySender(string $id, string $sender): array
     {
@@ -33,6 +36,6 @@ final class TransferRepository
     public function updateStatus(string $id, string $state): void
     {
         $q = $this->db->pdo->prepare("UPDATE transfers SET state=?,updated_at=? WHERE id=? AND state IN ('submitted','processing')");
-        $q->execute([$state, time(), $id]);
+        $q->execute([$state, (int) (microtime(true) * 1000000), $id]);
     }
 }
