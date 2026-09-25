@@ -120,6 +120,18 @@ def main():
             checked = subprocess.run([PHP, str(ROOT / 'bin/check_database.php')],
                                      text=True, capture_output=True, cwd=ROOT)
             assert checked.returncode == 0 and 'SQLite' in checked.stdout, (checked.stdout, checked.stderr)
+            original_config = config.read_text()
+            try:
+                partial_config = original_config.replace("'app_key'=>'" + 'ac' * 32 + "'", "'app_key'=>'PASTE_64_HEX_CHARACTERS_FROM_RANDOM_BYTES'")
+                assert partial_config != original_config
+                config.write_text(partial_config)
+                checked = subprocess.run([PHP, str(ROOT / 'bin/check_database.php')],
+                                         text=True, capture_output=True, cwd=ROOT)
+                assert checked.returncode == 0 and 'SQLite' in checked.stdout, (checked.stdout, checked.stderr)
+            finally:
+                config.write_text(original_config)
+            generated = subprocess.check_output([PHP, str(ROOT / 'bin/generate_app_key.php')], cwd=ROOT, text=True).strip()
+            assert re.fullmatch('[a-f0-9]{64}', generated)
             base = f'http://127.0.0.1:{frontend_port}/'
 
             def login(email):

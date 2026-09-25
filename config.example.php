@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-// Copy outside public/ as config.php. Generate app_key: php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'
+// Copy outside public/ as config.php. Generate app_key: php bin/generate_app_key.php
 return [
     'lnbits_url' => 'https://lnbits.cz',
     // Account-level Bearer/ACL token with POST /api/v1/wallet permission. NEVER paste a token in GitHub.
