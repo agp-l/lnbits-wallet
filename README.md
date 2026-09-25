@@ -43,6 +43,13 @@ Na stránce **Odeslat** je jeden formulář se dvěma režimy. Výchozí **Posla
 - Před voláním odeslání se uloží interní ID převodu a příjemcova faktura. Nejistý výsledek spojení se automaticky neopakuje. Aplikace sama ověřuje poslední e-mailový převod a zobrazuje jeho stav na obrazovce Odeslat bez zadávání ID. Kdyby se protokol LNbits a databáze rozešly, provozovatel zkontroluje historii obou peněženek přímo na instanci.
 - Vytvoření LNbits peněženky není atomické s místní databází. Při výpadku mezi těmito kroky může zůstat prázdná peněženka bez vazby a lokální účet ve stavu vytváření. Najděte peněženku v LNbits podle e-mailu (starší verze používaly název `Lite Wallet <prvních 12 znaků ID>`), ověřte její `wallet_id` a přiřaďte ji správnému účtu řízeným zásahem; **nezkoušejte automaticky vytvářet další peněženku**.
 
+### Kontrola dvojitých e-mailů
+
+Každá zpráva má v hlavičce unikátní `Message-ID`. Poštovní server po přijetí SMTP zprávy zapíše aplikace do PHP error logu jediný řádek `Lite Wallet SMTP accepted: lite-wallet.…`. Pokud se v poště objeví dvě stejné zprávy, otevřete u obou **Zobrazit originál** a porovnejte `Message-ID`:
+
+- Stejné `Message-ID`: jde o dvě kopie jedné SMTP zprávy. Prověřte přeposílání, aliasy a zda poštovní aplikace nezobrazuje odeslanou i přijatou zprávu, když se `mail.from` shoduje s příjemcem.
+- Různé `Message-ID`: jde o dvě samostatná odeslání. Porovnejte jejich ID s řádky v `/opt/lampp/logs/error_log` a časy požadavků ve webovém logu. Opakování požadavku o přihlašovací kód během minuty aplikace blokuje.
+
 ## Struktura
 
 | Složka | Účel |

@@ -54,6 +54,7 @@ def main():
         tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         tls.load_cert_chain(cert, key)
         messages = []
+        drop_quit_reply = [False]
 
         class Handler(socketserver.StreamRequestHandler):
             def handle(self):
@@ -84,6 +85,7 @@ def main():
                         messages.append(payload.decode(errors='replace'))
                         self.wfile.write(b'250 queued\r\n')
                     elif line == 'QUIT':
+                        if drop_quit_reply[0]: return
                         self.wfile.write(b'221 Bye\r\n'); return
                     self.wfile.flush()
 
@@ -142,9 +144,16 @@ def main():
                 csrf = re.search(r'name="csrf" value="([0-9a-f]{64})"', page).group(1)
                 def post(payload):
                     return opener.open(urllib.request.Request(base, data=urllib.parse.urlencode({'csrf': csrf, **payload}).encode())).read().decode()
+                before = len(messages)
                 page = post({'action': 'request_code', 'email': email})
                 assert 'jednorázový' in page
-                assert messages and email in messages[-1], page[:500]
+                assert len(messages) == before + 1 and email in messages[-1], page[:500]
+                assert re.search(r'(?m)^Date: .+\r?$', messages[-1])
+                message_id = re.search(r'(?m)^Message-ID: <(lite-wallet\.[a-f0-9]{32}@[^>]+)>\r?$', messages[-1])
+                assert message_id and all(message_id.group(1) not in older for older in messages[:-1])
+                # Double-clicking or repeating the POST must not submit another SMTP message.
+                post({'action': 'request_code', 'email': email})
+                assert len(messages) == before + 1
                 code = re.search(r'jednorázový kód: ([0-9]{8})', messages[-1]).group(1)
                 if email == 'alice@example.com':
                     try:
@@ -220,8 +229,10 @@ def main():
             preview = alice('email_preview', {'email': 'bob@example.com', 'amount': 2})
             assert preview['amount_msat'] == 2000
             assert len(json.loads((root / 'state.json').read_text())['wallets']) == 1
+            before_notification = len(messages)
             sent = alice('email_send', {'token': preview['token']})
             assert re.fullmatch('[0-9a-f]{32}', sent['id'])
+            assert len(messages) == before_notification + 1
             assert alice('email_status', extra='&id=' + sent['id'])['state'] == 'paid'
             assert alice('email_latest_status')['state'] == 'paid'
             assert alice('summary')['balance_msat'] == 4240000
@@ -232,7 +243,10 @@ def main():
             except urllib.error.HTTPError as err:
                 assert err.code == 400
             assert (root / 'sends.log').read_text().count('send') == 1
+            # The SMTP server accepted DATA; losing only the QUIT response must not resend the code.
+            drop_quit_reply[0] = True
             bob = login('bob@example.com')
+            drop_quit_reply[0] = False
             assert bob('email_latest_status')['state'] == 'none'
             summary = bob('summary')
             assert summary['balance_msat'] == 2000 and summary['payments'][0]['amount_msat'] == 2000

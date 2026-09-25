@@ -20,6 +20,8 @@ class Mailer
             || preg_match('/[\r\n]/', $host . $sender . $recipient . $user)) {
             throw new RuntimeException('SMTP není správně nastavené.');
         }
+        // A unique ID distinguishes two deliveries of one SMTP submission from two app submissions.
+        $messageId = 'lite-wallet.' . bin2hex(random_bytes(16)) . '@' . substr($sender, strrpos($sender, '@') + 1);
         $tls = ['verify_peer' => true, 'verify_peer_name' => true, 'peer_name' => $host];
         if (!empty($this->settings['ca_file'])) { $tls['cafile'] = (string) $this->settings['ca_file']; }
         $ctx = stream_context_create(['ssl' => $tls]);
@@ -40,13 +42,17 @@ class Mailer
             $this->command($socket, 'MAIL FROM:<' . $sender . '>', [250]);
             $this->command($socket, 'RCPT TO:<' . $recipient . '>', [250, 251]);
             $this->command($socket, 'DATA', [354]);
-            $headers = 'From: <' . $sender . ">\r\nTo: <" . $recipient . ">\r\nSubject: =?UTF-8?B?" . base64_encode($subject)
+            $headers = 'Date: ' . gmdate('D, d M Y H:i:s') . " +0000\r\nMessage-ID: <" . $messageId
+                . ">\r\nFrom: <" . $sender . ">\r\nTo: <" . $recipient . ">\r\nSubject: =?UTF-8?B?" . base64_encode($subject)
                 . "?=\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n";
             $lines = preg_split('/\r\n|\r|\n/', $body);
             $message = implode("\r\n", array_map(static fn (string $line): string => str_starts_with($line, '.') ? '.' . $line : $line, $lines));
             $this->writeAll($socket, $headers . "\r\n" . $message . "\r\n.\r\n");
             $this->expect($socket, [250]);
-            $this->command($socket, 'QUIT', [221]);
+            error_log('Lite Wallet SMTP accepted: ' . $messageId);
+            // After DATA was accepted, a lost QUIT response must not mark the mail as unsent.
+            try { $this->command($socket, 'QUIT', [221]); }
+            catch (RuntimeException $e) { /* Delivery was already accepted. */ }
         } finally { fclose($socket); }
     }
 
