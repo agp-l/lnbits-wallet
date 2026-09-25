@@ -21,6 +21,10 @@ Víceuživatelská peněženka v PHP nad oddělenými peněženkami jednoho úč
 
 Při reverzní proxy musí webový PHP proces dostávat `$_SERVER['HTTPS']='on'`. Neukládejte klíče ani SMTP heslo do GitHubu nebo JavaScriptu. Přes phpMyAdmin uvidíte uživatele a převody; klíče peněženek jsou v databázi zašifrované. Nezadávejte skutečná hesla do ukázkového souboru ani do GitHubu.
 
+### Místní ladění
+
+Při otevření z `localhost` přímo ze stejného počítače se zobrazí i fatální chyby PHP. Pokud prohlížeč stále hlásí HTTP 500 bez textu, aktualizujte soubory (`git pull origin main`), ověřte syntaxi ve webovém PHP příkazem `/opt/lampp/bin/php -l src/App.php` a přečtěte poslední řádky `/opt/lampp/logs/error_log`. CLI příkaz `php -v` může používat jinou verzi než XAMPP. Nepoužívejte veřejnou doménu k ladění výpisem chyb.
+
 **Už používáte SQLite?** Původní `config.php` s `database_path` dál funguje. Přepnutí na `database` typu MySQL nepřenese účty ani vazby peněženek; stávající data nechte v SQLite, dokud neproběhne řízená migrace. SQLite soubor a jeho `-wal`/`-shm` vyžadují zapisovatelnou složku mimo `public/` a společnou zálohu s `app_key`.
 
 ### E-mail a účty

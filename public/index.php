@@ -1,5 +1,7 @@
 <?php
 declare(strict_types=1);
+require dirname(__DIR__) . '/src/Support/LocalDiagnostics.php';
+LiteWallet\Support\LocalDiagnostics::enable();
 require dirname(__DIR__) . '/src/bootstrap.php';
 
 LiteWallet\Http\Headers::secure();
